@@ -1,0 +1,25 @@
+{
+  "android": {
+    "success": true,
+    "result": {
+      "apk": "G:/マイドライブ/apk/近場コレ-v1.0.0-release.apk",
+      "aab": "G:/マイドライブ/apk/近場コレ-v1.0.0-release.aab"
+    },
+    "build_info": {
+      "apk_size_mb": 62.2,
+      "aab_size_mb": 49.9,
+      "minification": false,
+      "agp_version": "8.9.1",
+      "kotlin_version": "2.3.20",
+      "jvm_args": "-Xmx1024m -XX:+UseSerialGC -XX:MaxMetaspaceSize=512m"
+    },
+    "error": null
+  },
+  "ios": null,
+  "project_info": {
+    "app_type": "utility",
+    "has_firebase": true,
+    "has_sentry": false,
+    "has_ads": false
+  }
+}
