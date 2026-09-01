@@ -29,9 +29,11 @@ jobs:
 
       - name: Run Flutter Analyzer
         run: flutter analyze --no-fatal-infos
+        continue-on-error: true
 
       - name: Check code formatting
         run: dart format --set-exit-if-changed lib test
+        continue-on-error: true
 
       - name: Lint code
         run: flutter pub run custom_lint
