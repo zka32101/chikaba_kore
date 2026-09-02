@@ -1,4 +1,4 @@
-﻿name: Build and Deploy APK
+﻿name: Build and Deploy
 
 on:
   push:
@@ -6,21 +6,82 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
-      
+          cache: true
+
       - name: Get dependencies
         run: flutter pub get
-      
-      - name: Build APK
+
+      - name: Build release APK
         run: flutter build apk --release
-      
-      - name: Upload APK
-        run: echo "APK built and ready for deployment"
+
+      - name: Rename APK
+        run: |
+          mkdir -p build/outputs
+          cp build/app/outputs/flutter-app-release.apk build/outputs/chikaba-kore-${GITHUB_REF#refs/tags/}.apk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/outputs/*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --release
+        continue-on-error: true
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web/
+          retention-days: 30
+        continue-on-error: true
+
+  create-release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release summary
+        run: |
+          echo "✨ Release ${{ steps.version.outputs.VERSION }}" > /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "### 📦 Downloads" >> /tmp/release-notes.md
+          echo "- **Android APK**: [Download](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/chikaba-kore-${{ steps.version.outputs.VERSION }}.apk)" >> /tmp/release-notes.md
+          echo "" >> /tmp/release-notes.md
+          echo "### 📝 Changelog" >> /tmp/release-notes.md
+          echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed changes." >> /tmp/release-notes.md
