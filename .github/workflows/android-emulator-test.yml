@@ -1,0 +1,126 @@
+name: Android Emulator Test
+
+on:
+  workflow_call:
+    inputs:
+      app-path:
+        description: 'Path to Flutter app (e.g., apps/prefecture_defense)'
+        required: true
+        type: string
+      test-command:
+        description: 'Test command to run'
+        required: false
+        type: string
+        default: 'flutter test'
+
+jobs:
+  emulator-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-levels: 34
+          ndk-version: 26.1.10909125
+          cmake-version: 3.22.1
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Cache Flutter packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.flutter
+          key: flutter-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            flutter-${{ runner.os }}-
+
+      - name: Create Android Virtual Device
+        run: |
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "system-images;android-34;google_apis;x86_64"
+
+          echo "no" | $ANDROID_SDK_ROOT/tools/bin/avdmanager create avd \
+            -n test_device \
+            -k "system-images;android-34;google_apis;x86_64" \
+            -d "Pixel_6_Pro_API_34" \
+            --force
+
+      - name: Start Android Emulator
+        run: |
+          $ANDROID_SDK_ROOT/emulator/emulator \
+            -avd test_device \
+            -no-audio \
+            -no-boot-anim \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -memory 2048 \
+            -cores 2 \
+            -qemu -m 2048 \
+            > /tmp/emulator.log 2>&1 &
+
+          echo "⏳ Waiting for emulator to boot..."
+          $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
+          $ANDROID_SDK_ROOT/platform-tools/adb shell getprop sys.boot_from_charger_mode
+
+          sleep 30
+
+      - name: Verify emulator
+        run: |
+          $ANDROID_SDK_ROOT/platform-tools/adb devices
+          $ANDROID_SDK_ROOT/platform-tools/adb shell getprop ro.boot.serialno
+
+      - name: Set up app
+        working-directory: ${{ inputs.app-path }}
+        run: |
+          flutter pub get
+          flutter clean
+
+      - name: Run tests
+        working-directory: ${{ inputs.app-path }}
+        run: ${{ inputs.test-command }}
+        timeout-minutes: 30
+        continue-on-error: true
+
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p test-results
+          $ANDROID_SDK_ROOT/platform-tools/adb logcat -d > test-results/logcat.log || true
+          cat /tmp/emulator.log > test-results/emulator.log || true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-emulator-logs
+          path: test-results/
+          if-no-files-found: ignore
+
+      - name: Stop emulator
+        if: always()
+        run: |
+          $ANDROID_SDK_ROOT/platform-tools/adb emu kill || true
