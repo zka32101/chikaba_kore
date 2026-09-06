@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-android:
@@ -21,13 +22,45 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Ensure Gradle wrapper JAR
+        working-directory: android
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "gradle-wrapper.jar not found, generating..."
+            GRADLE_VERSION=$(sed -n 's|.*/gradle-\(.*\)-all\.zip|\1|p' gradle/wrapper/gradle-wrapper.properties)
+            echo "Using Gradle version: $GRADLE_VERSION"
+            TMP=$(mktemp -d)
+            touch "$TMP/settings.gradle"
+            (cd "$TMP" && gradle wrapper --gradle-version "$GRADLE_VERSION" --distribution-type all -q 2>&1 || true)
+            if [ -f "$TMP/gradle/wrapper/gradle-wrapper.jar" ]; then
+              mkdir -p gradle/wrapper
+              cp "$TMP/gradle/wrapper/gradle-wrapper.jar" gradle/wrapper/gradle-wrapper.jar
+              echo "gradle-wrapper.jar generated successfully"
+            else
+              echo "Warning: Failed to generate gradle-wrapper.jar using gradle command"
+            fi
+            rm -rf "$TMP"
+          else
+            echo "gradle-wrapper.jar already exists"
+          fi
+
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Rename APK
+      - name: Build release AAB
+        run: flutter build appbundle --release
+
+      - name: Prepare artifacts
         run: |
           mkdir -p build/outputs
-          cp build/app/outputs/flutter-app-release.apk build/outputs/chikaba-kore-${GITHUB_REF#refs/tags/}.apk
+          if [ -f "build/app/outputs/flutter-app-release.apk" ]; then
+            cp build/app/outputs/flutter-app-release.apk build/outputs/chikaba-kore-${GITHUB_REF#refs/tags/}.apk
+            echo "APK generated: chikaba-kore-${GITHUB_REF#refs/tags/}.apk"
+          fi
+          if [ -f "build/app/outputs/bundle/release/app-release.aab" ]; then
+            cp build/app/outputs/bundle/release/app-release.aab build/outputs/chikaba-kore-${GITHUB_REF#refs/tags/}.aab
+            echo "AAB generated: chikaba-kore-${GITHUB_REF#refs/tags/}.aab"
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
