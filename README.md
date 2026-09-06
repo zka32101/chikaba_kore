@@ -76,11 +76,43 @@ flutter build apk --release
 
 ### iOS
 
+**前提条件:**
+- Xcode 14 以上がインストール済み
+- iOS 11.0 以上をターゲット
+- Apple Developer アカウント（リリースビルド用）
+
 ```bash
-# デバッグビルド
+# iOSプロジェクトの設定を確認
+cd ios
+pod repo update
+cd ..
+
+# デバッグビルド（シミュレーター向け）
 flutter build ios --debug
 
-# リリースビルド
+# デバッグビルド（実機向け）
+flutter build ios --debug --device-id <device_id>
+
+# リリースビルド（App Store配布用）
+flutter build ios --release
+
+# IPAファイルを生成
+flutter build ios --release --verbose
+# ビルド済みアプリはbuild/ios/Release-iphoneos/に出力されます
+```
+
+**トラブルシューティング:**
+```bash
+# CocoaPodsの依存関係をクリア
+cd ios
+rm -rf Pods
+rm Podfile.lock
+pod install --repo-update
+cd ..
+
+# キャッシュをクリア
+flutter clean
+flutter pub get
 flutter build ios --release
 ```
 
