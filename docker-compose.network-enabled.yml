@@ -1,0 +1,61 @@
+# ネットワーク有効化オーバーライド設定
+# 使用方法: docker-compose -f docker-compose.yml -f docker-compose.network-enabled.yml up -d claude
+
+version: '3.8'
+
+services:
+  claude:
+    # ネットワークモード: host に変更（完全なネットワークアクセス）
+    network_mode: "host"
+
+    # 環境変数（プロキシ設定の解除）
+    environment:
+      # プロキシ無効化
+      - HTTPS_PROXY=
+      - HTTP_PROXY=
+      - NO_PROXY=*
+
+      # npm 設定
+      - npm_config_prefer_offline=false
+      - npm_config_strict_ssl=false
+
+      # Node.js 設定
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - NODE_OPTIONS=--max-old-space-size=1024
+
+      # Dart/Flutter 設定
+      - FLUTTER_ALWAYS_USE_HTTP_CLIENT=true
+      - FLUTTER_ALWAYS_USE_HTTP_UPGRADE=true
+
+    # ボリュームマウント最適化（ネットワーク有効環境用）
+    volumes:
+      # npm キャッシュ
+      - npm-cache:/home/node/.npm
+
+      # Pub キャッシュ（Dart パッケージ）
+      - pub-cache:/home/node/.pub-cache
+
+      # Flutter キャッシュ
+      - flutter-cache:/home/node/.flutter
+
+      # ワークスペース
+      - .:/workspace
+      - ./.claude:/workspace/.claude
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - ./scripts:/workspace/scripts
+
+volumes:
+  npm-cache:
+    driver: local
+  pub-cache:
+    driver: local
+  flutter-cache:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      # DNS 設定（ネットワーク有効環境）
+      com.docker.network.driver.mtu: 1500
