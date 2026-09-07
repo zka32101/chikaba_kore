@@ -18,7 +18,10 @@
       "mcp__Claude_Code_Remote__interrupt_session",
       "mcp__Claude_Code_Remote__list_environments",
       "mcp__Claude_Code_Remote__list_repos",
-      "mcp__Claude_Code_Remote__send_later"
+      "mcp__Claude_Code_Remote__send_later",
+      "mcp__Claude_Code_Remote__subscribe_pr_activity",
+      "mcp__Claude_Code_Remote__unsubscribe_pr_activity",
+      "mcp__github__enable_pr_auto_merge"
     ]
   }
 }
