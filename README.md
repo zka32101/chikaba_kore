@@ -122,21 +122,74 @@ flutter build ios --release
 flutter build web --release
 ```
 
-## 🔄 CI/CD パイプライン
+## 🚀 自動ビルド・CI/CD
 
-### 自動ワークフロー
+### GitHub Actions による自動ビルド・デプロイ
 
-- **Test** (`test.yml`) — ユニット・ウィジェットテスト実行
-- **Lint** (`lint.yml`) — 静的解析・コード品質チェック
-- **Deploy** (`deploy.yml`) — リリースビルド・GitHub Releases へのアップロード
+このプロジェクトは GitHub Actions による自動ビルド・デプロイパイプラインに対応しています。
 
-### リリース方法
+**詳細ガイド**: [`yourwish/docs/build-ci-cd-guide.md`](https://github.com/zka32101/yourwish/blob/master/docs/build-ci-cd-guide.md)
+
+#### トリガー条件
+- ✅ `claude/**` ブランチへの push
+- ✅ Pull Request (main/develop)
+- ✅ 手動実行 (workflow_dispatch)
+- ✅ 週1回スケジュール実行
+
+#### 自動実行内容
+1. **コード分析・テスト** - `flutter analyze`, `flutter test`
+2. **Android ビルド** - APK/AAB 生成
+3. **iOS ビルド** - IPA 生成 (unsigned)
+4. **ビルドサマリー** - 結果集計
+
+#### ワークフローファイル
+- `.github/workflows/build-apk.yml` - 基本ビルド
+- テンプレート: [`yourwish/.github/workflows/build-template.yml`](https://github.com/zka32101/yourwish/blob/master/.github/workflows/build-template.yml)
+
+---
+
+### 💻 ローカルビルド
+
+#### APK生成（Android）
+```bash
+flutter build apk --release
+```
+
+#### iOS IPA生成
+```bash
+flutter build ios --release
+```
+
+#### Web リリースビルド
+```bash
+flutter build web --release
+```
+
+---
+
+### 📚 SessionStart Hook（自動初期化）
+
+Claude Code セッション起動時に自動的に以下を実行：
+- `flutter pub get` - 依存関係インストール
+- `flutter analyze` - コード分析
+
+設定ファイル: `.claude/hooks/session-start.sh`
+
+---
+
+### 🧪 build-and-test スキル（6観点テスト）
 
 ```bash
-# タグを作成してプッシュ（自動的にビルド・デプロイ）
-git tag v1.0.0
-git push origin v1.0.0
+/build-and-test chikaba_kore
 ```
+
+**テスト観点**:
+1. 起動テスト
+2. 接続テスト
+3. 課金画面
+4. 認証フロー
+5. 広告表示
+6. クラッシュ検出
 
 ## 📁 プロジェクト構成
 
