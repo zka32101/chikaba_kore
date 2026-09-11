@@ -10,7 +10,7 @@ plugins {
 }
 
 android {
-    namespace = "com.chikabacore.chikaba_kore"
+    namespace = "com.yourwish.chikabamap"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.chikabacore.chikaba_kore"
+        applicationId = "com.yourwish.chikabamap"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
