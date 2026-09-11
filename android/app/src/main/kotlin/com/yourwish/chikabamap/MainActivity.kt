@@ -1,4 +1,4 @@
-package com.chikabacore.chikaba_kore
+package com.yourwish.chikabamap
 
 import io.flutter.embedding.android.FlutterActivity
 
