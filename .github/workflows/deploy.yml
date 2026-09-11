@@ -130,8 +130,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build web
-        run: flutter build web --release
+      - name: Build web (optimized HTML renderer)
+        run: |
+          flutter build web --release \
+            --web-renderer html \
+            --no-sound-null-safety
+        continue-on-error: true
+
+      - name: Optimize web build
+        run: |
+          # Gzip compression for better transfer
+          find build/web -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" \) \
+            -exec gzip -9 -k {} \;
         continue-on-error: true
 
       - name: Upload web artifact
@@ -141,6 +151,39 @@ jobs:
           path: build/web/
           retention-days: 30
         continue-on-error: true
+
+  deploy-web:
+    needs: build-web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build web
+        run: |
+          flutter build web --release \
+            --web-renderer html \
+            --no-sound-null-safety
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: '${{ secrets.FIREBASE_PROJECT_ID }}'
+          channelId: live
+        continue-on-error: true
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
 
   create-release-notes:
     runs-on: ubuntu-latest
