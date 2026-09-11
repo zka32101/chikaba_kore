@@ -14,47 +14,8 @@ import '../widgets/custom_app_bar.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  static Future<void> _showPremiumDialog(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('プレミアムにアップグレード'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('月額 ¥100 で以下の機能が使えます：'),
-            SizedBox(height: 12),
-            _PremiumFeature(text: 'クチコミ無制限閲覧'),
-            _PremiumFeature(text: 'お気に入り無制限保存'),
-            _PremiumFeature(text: '広告非表示'),
-            _PremiumFeature(text: '優先サポート'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(minimumSize: Size.zero),
-            child: const Text('アップグレード'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && context.mounted) {
-      await ref.read(authNotifierProvider.notifier).upgradeToPremium();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('プレミアム会員になりました'),
-            backgroundColor: AppColors.primary,
-          ),
-        );
-      }
-    }
+  static void _navigateToPremium(BuildContext context) {
+    context.push('/premium');
   }
 
   static Future<void> _showUserTypeSheet(
@@ -205,10 +166,10 @@ class SettingsScreen extends ConsumerWidget {
                   label: user.isPremium ? 'プレミアム会員（有効）' : 'プレミアムにアップグレード',
                   trailing: user.isPremium
                       ? const Icon(Icons.check_circle, color: AppColors.primary)
-                      : const Text('¥100/月', style: TextStyle(color: AppColors.accent)),
+                      : const Icon(Icons.arrow_forward_ios, color: AppColors.textSecondary, size: 16),
                   onTap: user.isPremium
                       ? null
-                      : () => _showPremiumDialog(context, ref),
+                      : () => _navigateToPremium(context),
                 ),
                 _SettingsItem(
                   icon: Icons.person_outline,
