@@ -1,1 +1,66 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"petit-works-apps-9029a","appId":"1:216377882454:android:fab207363fb85ec5d108f7","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"petit-works-apps-9029a","configurations":{"android":"1:216377882454:android:fab207363fb85ec5d108f7","ios":"1:216377882454:ios:069fbfd52dc3b382d108f7"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "petit-works-apps-9029a",
+          "appId": "1:216377882454:android:fab207363fb85ec5d108f7",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    },
+    "dart": {
+      "lib/firebase_options.dart": {
+        "projectId": "petit-works-apps-9029a",
+        "configurations": {
+          "android": "1:216377882454:android:fab207363fb85ec5d108f7",
+          "ios": "1:216377882454:ios:069fbfd52dc3b382d108f7"
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|wasm)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "**/*.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
+        ]
+      },
+      {
+        "source": "index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "cleanUrls": true
+  }
+}}
