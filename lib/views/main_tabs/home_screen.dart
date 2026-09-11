@@ -9,6 +9,7 @@ import '../../providers/ui_provider.dart';
 import '../widgets/loading_shimmer.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/gacha_widget.dart';
+import '../widgets/premium_badge.dart';
 import 'home_reel_tab.dart';
 import 'home_grid_tab.dart';
 
@@ -57,6 +58,12 @@ class HomeScreen extends ConsumerWidget {
           _CategoryBar(
             selected: state.selectedCategory,
             onSelect: vm.selectCategory,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: PremiumInfoCard(
+              onUpgradePressed: () => context.push('/premium'),
+            ),
           ),
           const _GachaButton(),
           _RatingFilterBar(
