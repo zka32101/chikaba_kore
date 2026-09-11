@@ -11,51 +11,6 @@ class AuthService {
   User? get currentFirebaseUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  Future<UserModel?> signUpWithEmail({
-    required String email,
-    required String password,
-    required String nickname,
-    required String userType,
-  }) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      final uid = credential.user!.uid;
-      final now = DateTime.now();
-      final user = UserModel(
-        uid: uid,
-        nickname: nickname,
-        userType: userType,
-        selectedCity: '東京23区',
-        createdAt: now,
-        updatedAt: now,
-      );
-      await _firestore.collection('users').doc(uid).set(user.toFirestore());
-      return user;
-    } on FirebaseAuthException catch (e) {
-      appLogger.e('SignUp error', error: e);
-      rethrow;
-    }
-  }
-
-  Future<UserModel?> signInWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return _fetchUserModel(credential.user!.uid);
-    } on FirebaseAuthException catch (e) {
-      appLogger.e('SignIn error', error: e);
-      rethrow;
-    }
-  }
-
   Future<void> signOut() async {
     await _auth.signOut();
   }

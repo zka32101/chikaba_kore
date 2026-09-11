@@ -8,25 +8,6 @@ class AuthRepository {
   Stream<bool> get isSignedIn =>
       _authService.authStateChanges.map((user) => user != null);
 
-  Future<UserModel?> signUp({
-    required String email,
-    required String password,
-    required String nickname,
-    required String userType,
-  }) =>
-      _authService.signUpWithEmail(
-        email: email,
-        password: password,
-        nickname: nickname,
-        userType: userType,
-      );
-
-  Future<UserModel?> signIn({
-    required String email,
-    required String password,
-  }) =>
-      _authService.signInWithEmail(email: email, password: password);
-
   Future<UserModel?> signInWithGoogle() => _authService.signInWithGoogle();
 
   Future<void> signOut() => _authService.signOut();

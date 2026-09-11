@@ -34,38 +34,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     }
   }
 
-  Future<void> signUp({
-    required String email,
-    required String password,
-    required String nickname,
-    required String userType,
-  }) async {
-    state = const AsyncValue.loading();
-    try {
-      final user = await _repo.signUp(
-        email: email,
-        password: password,
-        nickname: nickname,
-        userType: userType,
-      );
-      state = AsyncValue.data(user);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
-
-  Future<void> signIn({required String email, required String password}) async {
-    state = const AsyncValue.loading();
-    try {
-      final user = await _repo.signIn(email: email, password: password);
-      state = AsyncValue.data(user);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
-
   Future<void> signInWithGoogle() async {
     state = const AsyncValue.loading();
     try {
