@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="chikaba_kore"
+        android:label="近場まっぷ"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
