@@ -30,7 +30,7 @@ class ChikabaKoreApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: '近場コレ',
+      title: '近場まっぷ',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: appRouter,
