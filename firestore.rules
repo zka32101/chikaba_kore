@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ユーザードキュメント
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId;
+
+      // 書き込み時のセキュリティチェック
+      allow create: if request.auth.uid == userId
+        && isValidUserCreate(request.resource.data);
+
+      allow update: if request.auth.uid == userId
+        && isValidUserUpdate(resource.data, request.resource.data);
+
+      allow delete: if request.auth.uid == userId;
+
+      // サブコレクション: お気に入り
+      match /favorites/{favoriteId} {
+        allow read: if request.auth.uid == userId;
+        allow create, update, delete: if request.auth.uid == userId;
+      }
+    }
+
+    // 施設情報（誰でも読み取り可能、書き込みは管理者のみ）
+    match /facilities/{facilityId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // レビュー
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.uid == resource.data.userId;
+    }
+
+    // セキュリティ関数
+
+    // ユーザー作成時の検証
+    function isValidUserCreate(data) {
+      return data.uid != null
+        && data.nickname != null
+        && (data.userType == 'local' || data.userType == 'visitor')
+        && (!('isPremium' in data) || data.isPremium == false);
+    }
+
+    // ユーザー更新時の検証（isPremium は Cloud Functions のみ更新可能）
+    function isValidUserUpdate(oldData, newData) {
+      // isPremium フィールドの直接変更を禁止
+      let isPremiumUnchanged = (('isPremium' in oldData) && (newData.isPremium == oldData.isPremium))
+        || (!('isPremium' in oldData) && !('isPremium' in newData));
+
+      return isPremiumUnchanged
+        && isValidUserCreate(newData);
+    }
+
+    // 管理者チェック
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+  }
+}

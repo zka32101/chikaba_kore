@@ -1,10 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../services/billing_service.dart';
+import '../services/receipt_verification_service.dart';
 import '../utils/logger.dart';
 import 'auth_provider.dart';
 
 final billingServiceProvider = Provider<BillingService>((ref) => BillingService());
+
+final receiptVerificationProvider = Provider<ReceiptVerificationService>(
+  (ref) => ReceiptVerificationService(),
+);
 
 /// 課金機能が利用可能か
 final billingAvailableProvider = FutureProvider<bool>((ref) async {
@@ -30,9 +35,14 @@ final billingPurchaseStreamProvider =
 /// 購入処理（ローディング状態管理）
 class BillingNotifier extends StateNotifier<AsyncValue<void>> {
   final BillingService _service;
+  final ReceiptVerificationService _verificationService;
   final Ref? _ref;
 
-  BillingNotifier(this._service, [this._ref]) : super(const AsyncValue.data(null));
+  BillingNotifier(
+    this._service,
+    this._verificationService, [
+    this._ref,
+  ]) : super(const AsyncValue.data(null));
 
   /// プロダクトを購入
   Future<bool> purchaseProduct(ProductDetails product) async {
@@ -47,28 +57,42 @@ class BillingNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  /// 購入完成
+  /// 購入完成（レシート検証付き）
   Future<void> completePurchase(PurchaseDetails purchase) async {
     try {
+      // サーバー側でレシートを検証
+      final verified = await _verificationService.verifyPurchaseAndUpdatePremium(
+        purchase,
+      );
+
+      if (!verified) {
+        appLogger.w('Purchase verification failed: ${purchase.productID}');
+        throw Exception('Purchase verification failed');
+      }
+
+      // 検証成功後、ネイティブ側で購入完成処理
       await _service.completePurchase(purchase);
-      // 購入完了後、プレミアムステータスを更新
+
+      // プレミアムステータスは既にサーバー側で更新されている
+      // ローカルのキャッシュを更新
       if (_ref != null) {
-        await _upgradeToPremium();
+        await _refreshUserData();
       }
     } catch (e) {
+      appLogger.e('Complete purchase error', error: e);
       rethrow;
     }
   }
 
-  /// プレミアムアップグレード
-  Future<void> _upgradeToPremium() async {
+  /// ユーザーデータを更新（サーバー側で既にプレミアム更新済み）
+  Future<void> _refreshUserData() async {
     if (_ref == null) return;
     try {
-      final authNotifier = _ref!.read(authNotifierProvider.notifier);
-      await authNotifier.upgradeToPremium();
+      // currentUserProvider を無効化して再フェッチ
+      _ref!.refresh(currentUserProvider);
+      appLogger.i('User data refreshed');
     } catch (e) {
-      // ログに出力するのみ（購入自体は完了している）
-      appLogger.w('Failed to update premium status: $e');
+      appLogger.w('Failed to refresh user data: $e');
     }
   }
 
@@ -77,9 +101,9 @@ class BillingNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _service.restorePurchases();
-      // 復元完了後、プレミアムステータスを更新
+      // 復元完了後、ユーザーデータを更新
       if (_ref != null) {
-        await _upgradeToPremium();
+        await _refreshUserData();
       }
       state = const AsyncValue.data(null);
     } catch (e, st) {
@@ -92,7 +116,8 @@ class BillingNotifier extends StateNotifier<AsyncValue<void>> {
 final billingNotifierProvider =
     StateNotifierProvider<BillingNotifier, AsyncValue<void>>((ref) {
   final service = ref.watch(billingServiceProvider);
-  return BillingNotifier(service, ref);
+  final verificationService = ref.watch(receiptVerificationProvider);
+  return BillingNotifier(service, verificationService, ref);
 });
 
 /// 購入更新を監視して自動で完成処理
