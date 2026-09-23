@@ -106,6 +106,40 @@ class FirestoreService {
     await batch.commit();
   }
 
+  /// クチコミを通報する。reports/{userId} をdocIdにすることで、
+  /// 同一ユーザーによる二重通報は自動的に1件に集約される（上書き）。
+  /// 一定件数に達すると Cloud Functions (onReviewReportCreate) が
+  /// 自動的に status を 'pending' へ差し戻す。
+  Future<void> reportReview(String reviewId, String userId) async {
+    await _db
+        .collection('reviews')
+        .doc(reviewId)
+        .collection('reports')
+        .doc(userId)
+        .set({'createdAt': FieldValue.serverTimestamp()});
+  }
+
+  /// 承認待ち（status == 'pending'）のクチコミ一覧を取得する。管理者専用。
+  Future<List<ReviewModel>> getPendingReviews({int limit = 50}) async {
+    final snapshot = await _db
+        .collection('reviews')
+        .where('status', isEqualTo: 'pending')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
+    return snapshot.docs.map(ReviewModel.fromFirestore).toList();
+  }
+
+  /// 承認待ちクチコミを承認する（status: 'approved' へ）。管理者専用。
+  Future<void> approveReview(String reviewId) async {
+    await _db.collection('reviews').doc(reviewId).update({'status': 'approved'});
+  }
+
+  /// 承認待ちクチコミを却下する（削除）。管理者専用。
+  Future<void> rejectReview(String reviewId) async {
+    await _db.collection('reviews').doc(reviewId).delete();
+  }
+
   // ---- Favorites ----
 
   Stream<List<FavoriteModel>> watchFavorites(String userId) {

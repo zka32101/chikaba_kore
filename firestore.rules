@@ -30,21 +30,35 @@ service cloud.firestore {
     // レビュー
     match /reviews/{reviewId} {
       // 承認済みは誰でも閲覧可。本人は自分の投稿を承認待ち含めて閲覧可能。
+      // 管理者は承認待ち一覧の確認のため全件閲覧可能。
       allow read: if resource.data.status == 'approved'
-        || (request.auth != null && request.auth.uid == resource.data.userId);
+        || (request.auth != null && request.auth.uid == resource.data.userId)
+        || isAdmin();
 
       // 作成時は常に status: 'approved' で固定（即時公開のUXは維持）。
-      // 連投レート制限に触れた場合のみ、Cloud Functions(Admin SDK)が事後的に
-      // 'pending'へ差し戻す（クライアントからは最初からpendingを名乗れない）。
+      // 連投レート制限・通報しきい値超過の場合のみ、Cloud Functions(Admin SDK)が
+      // 事後的に'pending'へ差し戻す（クライアントからは最初からpendingを名乗れない）。
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == 'approved';
 
-      // 更新はstatusフィールドの変更のみ禁止（Cloud Functionsのみが変更可能）。
-      allow update: if request.auth.uid == resource.data.userId
-        && request.resource.data.status == resource.data.status;
+      // 本人による更新はstatusフィールドの変更のみ禁止。
+      // 管理者は承認待ち一覧からの承認(status変更)のみ許可(他フィールドは変更不可)。
+      allow update: if (request.auth.uid == resource.data.userId
+          && request.resource.data.status == resource.data.status)
+        || (isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
 
-      allow delete: if request.auth.uid == resource.data.userId;
+      // 本人または管理者(却下)による削除を許可。
+      allow delete: if request.auth.uid == resource.data.userId || isAdmin();
+
+      // クチコミへの通報。docIdをuserIdにすることで同一ユーザーの二重通報を防ぐ。
+      // 通報一覧はクライアントから読めない(Cloud Functionsが件数カウントのみ行う)。
+      match /reports/{userId} {
+        allow read: if false;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
+      }
     }
 
     // セキュリティ関数

@@ -9,4 +9,16 @@ class ReviewRepository {
       _firestore.getReviews(facilityId, limit: limit);
 
   Future<void> addReview(ReviewModel review) => _firestore.addReview(review);
+
+  Future<void> reportReview(String reviewId, String userId) =>
+      _firestore.reportReview(reviewId, userId);
+
+  Future<List<ReviewModel>> getPendingReviews({int limit = 50}) =>
+      _firestore.getPendingReviews(limit: limit);
+
+  Future<void> approveReview(String reviewId) =>
+      _firestore.approveReview(reviewId);
+
+  Future<void> rejectReview(String reviewId) =>
+      _firestore.rejectReview(reviewId);
 }

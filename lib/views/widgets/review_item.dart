@@ -1,16 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/review_model.dart';
 import '../../config/theme/app_theme.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/review_provider.dart';
 import '../../utils/extensions.dart';
 import '../fullscreen_image_screen.dart';
 
-class ReviewItem extends StatelessWidget {
+class ReviewItem extends ConsumerWidget {
   final ReviewModel review;
   const ReviewItem({super.key, required this.review});
 
+  Future<void> _handleReport(BuildContext context, WidgetRef ref) async {
+    final currentUser = ref.read(currentUserProvider).valueOrNull;
+    if (currentUser == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('このクチコミを通報しますか？'),
+        content: const Text('不適切な内容として運営に報告します。一定数の通報が集まると、内容が確認されるまで非表示になります。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
+            child: const Text('通報する'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref
+          .read(reviewReportNotifierProvider.notifier)
+          .report(review.id, currentUser.uid);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('通報しました。ご協力ありがとうございます。')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('通報に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -28,7 +73,7 @@ class ReviewItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context),
+          _buildHeader(context, ref),
           const SizedBox(height: 10),
           _buildRating(),
           const SizedBox(height: 8),
@@ -63,7 +108,9 @@ class ReviewItem extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final isOwnReview = currentUser?.uid == review.userId;
     return Row(
       children: [
         // アバター
@@ -113,6 +160,28 @@ class ReviewItem extends StatelessWidget {
             ],
           ),
         ),
+        // 自分の投稿には通報ボタンを出さない。未ログインは通報不可。
+        if (currentUser != null && !isOwnReview)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded,
+                size: 18, color: AppColors.textSecondary),
+            padding: EdgeInsets.zero,
+            onSelected: (value) {
+              if (value == 'report') _handleReport(context, ref);
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    Icon(Icons.flag_outlined, size: 16, color: AppColors.accent),
+                    SizedBox(width: 8),
+                    Text('通報する'),
+                  ],
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }

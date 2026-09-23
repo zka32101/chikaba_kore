@@ -137,6 +137,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(authNotifierProvider);
     final user = userAsync.valueOrNull;
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
 
     return Scaffold(
       appBar: const CustomAppBar(title: 'マイページ'),
@@ -197,6 +198,17 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          if (isAdmin)
+            _SettingsSection(
+              title: '管理者メニュー',
+              items: [
+                _SettingsItem(
+                  icon: Icons.rate_review_outlined,
+                  label: '承認待ちクチコミ',
+                  onTap: () => context.push('/admin/pending-reviews'),
+                ),
+              ],
+            ),
           _SettingsSection(
             title: 'アプリ情報',
             items: [

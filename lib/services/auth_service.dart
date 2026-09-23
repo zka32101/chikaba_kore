@@ -27,6 +27,15 @@ class AuthService {
     return _fetchUserModel(uid);
   }
 
+  /// 現在ログイン中のユーザーが管理者(Custom Claim `admin: true`)かどうか。
+  /// firestore.rules の isAdmin() と対になる判定。
+  Future<bool> isCurrentUserAdmin() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    final tokenResult = await user.getIdTokenResult();
+    return tokenResult.claims?['admin'] == true;
+  }
+
   /// Google アカウントでサインイン（新規ユーザーは自動的に Firestore ドキュメントを作成）
   Future<UserModel?> signInWithGoogle() async {
     try {
