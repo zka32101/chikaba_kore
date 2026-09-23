@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../repositories/auth_repository.dart';
+import '../purchases/purchases_bootstrap.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -28,6 +29,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     state = const AsyncValue.loading();
     try {
       final user = await _repo.getCurrentUser();
+      if (user != null) await linkPurchasesToUser(user.uid);
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -38,6 +40,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     state = const AsyncValue.loading();
     try {
       final user = await _repo.signInWithGoogle();
+      // RevenueCat の app_user_id を Firebase UID に一致させる
+      // (revenuecatWebhook が users/{uid} を直接更新できるようにするため)
+      await linkPurchasesToUser(user.uid);
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -72,12 +77,6 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     if (updated != null) state = AsyncValue.data(updated);
   }
 
-  Future<void> upgradeToPremium() async {
-    // 実際の課金処理は in-app purchase パッケージで行う
-    // ここではフラグのみ更新（デモ用）
-    final updated = await _repo.updateUserField({'isPremium': true});
-    if (updated != null) state = AsyncValue.data(updated);
-  }
 }
 
 final authNotifierProvider =

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../providers/billing_provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -9,9 +9,11 @@ class PremiumScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final billingAvailable = ref.watch(billingAvailableProvider);
-    final products = ref.watch(billingProductsProvider);
-    final billingState = ref.watch(billingNotifierProvider);
+    final purchasesAvailable = ref.watch(purchasesAvailableProvider);
+    final packages = ref.watch(availablePackagesProvider);
+    final subscriptionState = ref.watch(subscriptionNotifierProvider);
+    // currentUserProvider は Firestore を監視しているため、
+    // RevenueCat Webhook 経由の isPremium 更新も自動反映される
     final currentUser = ref.watch(currentUserProvider);
 
     return Scaffold(
@@ -51,73 +53,60 @@ class PremiumScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              // ビリング利用可能性チェック
-              billingAvailable.when(
-                data: (available) {
-                  if (!available) {
-                    return Center(
-                      child: Text(
-                        'このデバイスではアプリ内課金がご利用いただけません',
-                        style: TextStyle(color: Colors.red.shade700),
-                      ),
-                    );
-                  }
-
-                  // 商品一覧
-                  return products.when(
-                    data: (productList) {
-                      if (productList.isEmpty) {
-                        return const Center(
-                          child: Text('利用可能な商品がありません'),
-                        );
-                      }
-
-                      return Column(
-                        children: [
-                          const Text(
-                            'プランを選択',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ...productList.map(
-                            (product) => _buildProductCard(
-                              context,
-                              ref,
-                              product,
-                              billingState,
-                            ),
-                          ),
-                        ],
+              if (!purchasesAvailable)
+                Center(
+                  child: Text(
+                    'このデバイスではアプリ内課金がご利用いただけません',
+                    style: TextStyle(color: Colors.red.shade700),
+                  ),
+                )
+              else
+                packages.when(
+                  data: (packageList) {
+                    if (packageList.isEmpty) {
+                      return const Center(
+                        child: Text('利用可能なプランがありません'),
                       );
-                    },
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                    error: (error, stack) => Center(
-                      child: Text('エラー: $error'),
-                    ),
-                  );
-                },
-                loading: () => const Center(
-                  child: CircularProgressIndicator(),
+                    }
+
+                    return Column(
+                      children: [
+                        const Text(
+                          'プランを選択',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ...packageList.map(
+                          (package) => _buildPackageCard(
+                            context,
+                            ref,
+                            package,
+                            subscriptionState,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                  error: (error, stack) => Center(
+                    child: Text('エラー: $error'),
+                  ),
                 ),
-                error: (error, stack) => Center(
-                  child: Text('エラー: $error'),
-                ),
-              ),
               const SizedBox(height: 24),
 
               // 復元ボタン
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.tonal(
-                  onPressed: billingState.isLoading
+                  onPressed: subscriptionState.isLoading
                       ? null
                       : () => _handleRestore(context, ref),
-                  child: billingState.isLoading
+                  child: subscriptionState.isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
@@ -133,14 +122,15 @@ class PremiumScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProductCard(
+  Widget _buildPackageCard(
     BuildContext context,
     WidgetRef ref,
-    ProductDetails product,
-    AsyncValue<void> billingState,
+    Package package,
+    AsyncValue<void> subscriptionState,
   ) {
-    final isMonthly = product.id.contains('monthly');
-    final isLoading = billingState.isLoading;
+    final product = package.storeProduct;
+    final isMonthly = product.identifier.contains('monthly');
+    final isLoading = subscriptionState.isLoading;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -182,7 +172,7 @@ class PremiumScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              product.price,
+              product.priceString,
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -190,7 +180,7 @@ class PremiumScreen extends ConsumerWidget {
             ),
             if (!isMonthly)
               Text(
-                '月額 ${(double.parse(product.price.replaceAll(RegExp(r'[^0-9.]'), '')) / 12).toStringAsFixed(2)} 相当',
+                '月額 ${(product.price / 12).toStringAsFixed(2)} 相当',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey.shade600,
@@ -202,7 +192,7 @@ class PremiumScreen extends ConsumerWidget {
               child: ElevatedButton(
                 onPressed: isLoading
                     ? null
-                    : () => _handlePurchase(context, ref, product),
+                    : () => _handlePurchase(context, ref, product.identifier),
                 child: isLoading
                     ? const SizedBox(
                         height: 20,
@@ -221,15 +211,15 @@ class PremiumScreen extends ConsumerWidget {
   Future<void> _handlePurchase(
     BuildContext context,
     WidgetRef ref,
-    ProductDetails product,
+    String productId,
   ) async {
     try {
-      final notifier = ref.read(billingNotifierProvider.notifier);
-      final success = await notifier.purchaseProduct(product);
+      final notifier = ref.read(subscriptionNotifierProvider.notifier);
+      final success = await notifier.purchase(productId);
 
       if (success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('購入処理が開始されました')),
+          const SnackBar(content: Text('購入処理が完了しました')),
         );
       }
     } catch (e) {
@@ -246,7 +236,7 @@ class PremiumScreen extends ConsumerWidget {
     WidgetRef ref,
   ) async {
     try {
-      final notifier = ref.read(billingNotifierProvider.notifier);
+      final notifier = ref.read(subscriptionNotifierProvider.notifier);
       await notifier.restorePurchases();
 
       if (context.mounted) {
