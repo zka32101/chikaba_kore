@@ -12,6 +12,7 @@ import '../view_models/facility_detail_view_model.dart';
 import 'fullscreen_image_screen.dart';
 import '../providers/favorite_provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/maps_launcher.dart';
 import 'widgets/review_item.dart';
 import 'widgets/loading_shimmer.dart';
 
@@ -295,14 +296,7 @@ class FacilityDetailScreen extends ConsumerWidget {
             title: facility.address,
             subtitle: 'Google Maps で開く',
             trailing: Icons.open_in_new_rounded,
-            onTap: () {
-              final query = Uri.encodeComponent(facility.address);
-              launchUrl(
-                Uri.parse(
-                    'https://www.google.com/maps/search/?api=1&query=$query'),
-                mode: LaunchMode.externalApplication,
-              );
-            },
+            onTap: () => MapsLauncher.openSearch(facility.address),
             onLongPress: () {
               Clipboard.setData(ClipboardData(text: facility.address));
               ScaffoldMessenger.of(context).showSnackBar(
@@ -313,6 +307,15 @@ class FacilityDetailScreen extends ConsumerWidget {
                 ),
               );
             },
+          ),
+          _ActionTile(
+            icon: Icons.directions_rounded,
+            iconColor: const Color(0xFF00B377),
+            title: '経路を見る',
+            subtitle: '現在地からのルートをGoogle Mapsで表示',
+            trailing: Icons.open_in_new_rounded,
+            onTap: () =>
+                MapsLauncher.openDirections(facility.latitude, facility.longitude),
           ),
           if (facility.phone.isNotEmpty)
             _ActionTile(
