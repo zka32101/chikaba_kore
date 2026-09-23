@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import axios from 'axios';
 
@@ -33,7 +33,7 @@ async function verifyAppleReceipt(
       password: process.env.APPLE_APP_SECRET || '',
     });
 
-    const { status, receipt: receiptData } = response.data;
+    const { status } = response.data;
 
     // status: 0 = valid, 21007 = sandbox receipt on production, 21008 = production receipt on sandbox
     if (status === 0 || status === 21007) {

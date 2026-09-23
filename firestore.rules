@@ -29,9 +29,22 @@ service cloud.firestore {
 
     // レビュー
     match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth.uid == resource.data.userId;
+      // 承認済みは誰でも閲覧可。本人は自分の投稿を承認待ち含めて閲覧可能。
+      allow read: if resource.data.status == 'approved'
+        || (request.auth != null && request.auth.uid == resource.data.userId);
+
+      // 作成時は常に status: 'approved' で固定（即時公開のUXは維持）。
+      // 連投レート制限に触れた場合のみ、Cloud Functions(Admin SDK)が事後的に
+      // 'pending'へ差し戻す（クライアントからは最初からpendingを名乗れない）。
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'approved';
+
+      // 更新はstatusフィールドの変更のみ禁止（Cloud Functionsのみが変更可能）。
+      allow update: if request.auth.uid == resource.data.userId
+        && request.resource.data.status == resource.data.status;
+
+      allow delete: if request.auth.uid == resource.data.userId;
     }
 
     // セキュリティ関数

@@ -12,6 +12,7 @@ class ReviewModel {
   final List<String> imageUrls;
   final DateTime createdAt;
   final bool isVerified;
+  final String status; // 'approved' or 'pending'（連投レート制限に触れた場合のみサーバー側でpendingへ）
 
   const ReviewModel({
     required this.id,
@@ -25,6 +26,7 @@ class ReviewModel {
     required this.imageUrls,
     required this.createdAt,
     this.isVerified = false,
+    this.status = 'approved',
   });
 
   factory ReviewModel.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +43,7 @@ class ReviewModel {
       imageUrls: List<String>.from(data['imageUrls'] as List? ?? []),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       isVerified: data['isVerified'] as bool? ?? false,
+      status: data['status'] as String? ?? 'approved',
     );
   }
 
@@ -55,6 +58,9 @@ class ReviewModel {
         'imageUrls': imageUrls,
         'createdAt': Timestamp.fromDate(createdAt),
         'isVerified': isVerified,
+        // 常に'approved'で作成し、即時公開のUXを維持する。連投レート制限に触れた場合のみ
+        // Cloud Functions(Admin SDK)が事後的に'pending'へ差し戻す（firestore.rules参照）。
+        'status': 'approved',
       };
 
   bool get isLocal => userType == 'local';
