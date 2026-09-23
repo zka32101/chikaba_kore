@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../providers/billing_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/subscription_store_launcher.dart';
 
 class PremiumScreen extends ConsumerWidget {
   const PremiumScreen({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class PremiumScreen extends ConsumerWidget {
     // currentUserProvider は Firestore を監視しているため、
     // RevenueCat Webhook 経由の isPremium 更新も自動反映される
     final currentUser = ref.watch(currentUserProvider);
+    final isPremium = currentUser.valueOrNull?.isPremium ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -27,6 +29,10 @@ class PremiumScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isPremium) ...[
+                _CurrentPlanCard(purchasesAvailable: purchasesAvailable),
+                const SizedBox(height: 24),
+              ],
               // ヘッダー
               Card(
                 color: Colors.blue.shade50,
@@ -53,7 +59,11 @@ class PremiumScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              if (!purchasesAvailable)
+              // 既にプレミアム会員の場合はプラン選択を出さない
+              // (プラン変更はストアの管理画面から行う)
+              if (isPremium)
+                const SizedBox.shrink()
+              else if (!purchasesAvailable)
                 Center(
                   child: Text(
                     'このデバイスではアプリ内課金がご利用いただけません',
@@ -252,4 +262,72 @@ class PremiumScreen extends ConsumerWidget {
       }
     }
   }
+}
+
+/// 現在のプラン状態と、ストアのサブスクリプション管理画面への導線を表示する。
+/// プラン変更・解約はアプリ内からは操作できないため、各ストアの管理画面へ誘導する。
+class _CurrentPlanCard extends ConsumerWidget {
+  final bool purchasesAvailable;
+  const _CurrentPlanCard({required this.purchasesAvailable});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final subscriptionStatus = ref.watch(subscriptionStatusProvider);
+
+    return Card(
+      color: Colors.amber.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.workspace_premium, color: Colors.amber.shade700),
+                const SizedBox(width: 8),
+                const Text(
+                  'プレミアム会員です',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // RevenueCat未接続(purchasesAvailable=false)の場合は
+            // 有効期限情報が取得できないため表示しない
+            if (purchasesAvailable)
+              subscriptionStatus.when(
+                data: (state) {
+                  final expiresAt = state.expiresAt;
+                  if (expiresAt == null) return const SizedBox.shrink();
+                  return Text(
+                    '次回更新日: ${_formatDate(expiresAt)}',
+                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                  );
+                },
+                loading: () => const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                error: (_, _) => const SizedBox.shrink(),
+              ),
+            if (SubscriptionStoreLauncher.isSupported) ...[
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: SubscriptionStoreLauncher.openManageSubscription,
+                child: const Text('サブスクリプションを管理'),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'プラン変更・解約はストアの管理画面から行えます',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) => '${date.year}年${date.month}月${date.day}日';
 }
