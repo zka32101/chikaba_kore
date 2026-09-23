@@ -17,7 +17,11 @@ import '../views/screens/pending_reviews_screen.dart';
 
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// フォアグラウンド通知バナー等、ルート直下の[Overlay]にアクセスするために使う。
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouter = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
     GoRoute(path: '/', builder: (_, _) => const SplashScreen()),

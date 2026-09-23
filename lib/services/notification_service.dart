@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../config/router.dart';
+import '../models/app_notification.dart';
 import '../utils/logger.dart';
 
 /// バックグラウンドハンドラ（トップレベル関数必須）
@@ -16,6 +18,10 @@ class NotificationService {
 
   final _messaging = FirebaseMessaging.instance;
   final _localNotifications = FlutterLocalNotificationsPlugin();
+  final _foregroundMessageController = StreamController<AppNotification>.broadcast();
+
+  /// フォアグラウンド受信したプッシュ通知。アプリ内バナー表示用。
+  Stream<AppNotification> get foregroundMessages => _foregroundMessageController.stream;
 
   static const _channelId = 'chikaba_kore_default';
   static const _channelName = '近場コレ通知';
@@ -41,7 +47,6 @@ class NotificationService {
     );
     await _localNotifications.initialize(
       const InitializationSettings(android: androidInit, iOS: darwinInit),
-      onDidReceiveNotificationResponse: _onLocalNotificationTap,
     );
 
     // Android 通知チャンネル
@@ -56,14 +61,15 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
 
-    // フォアグラウンド通知の表示設定
+    // フォアグラウンド時はシステム側のアラート表示を抑止し、
+    // アプリ内バナー（ForegroundBannerQueue）側で表示する
     await _messaging.setForegroundNotificationPresentationOptions(
-      alert: true,
+      alert: false,
       badge: true,
-      sound: true,
+      sound: false,
     );
 
-    // フォアグラウンドでメッセージ受信したときはローカル通知を表示
+    // フォアグラウンドでメッセージ受信したときはアプリ内バナー用ストリームへ発行
     FirebaseMessaging.onMessage.listen(_onForegroundMessage);
 
     // バックグラウンドから復帰してタップされた場合
@@ -103,32 +109,13 @@ class NotificationService {
     final notification = message.notification;
     if (notification == null) return;
 
-    _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(),
+    _foregroundMessageController.add(
+      AppNotification(
+        title: notification.title ?? '',
+        body: notification.body ?? '',
+        facilityId: message.data['facilityId'] as String?,
       ),
-      // ペイロードをローカル通知に埋め込む（タップ時に facilityId を受け取る）
-      payload: message.data['facilityId'] as String?,
     );
-  }
-
-  /// ローカル通知（フォアグラウンド受信分）のタップ
-  void _onLocalNotificationTap(NotificationResponse response) {
-    final facilityId = response.payload;
-    appLogger.d('Local notification tapped, facilityId=$facilityId');
-    if (facilityId != null && facilityId.isNotEmpty) {
-      appRouter.push('/facility/$facilityId');
-    }
   }
 
   /// FCM トークンを取得（サーバーへの登録に使用）

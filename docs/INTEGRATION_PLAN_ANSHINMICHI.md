@@ -69,8 +69,10 @@ project-039 は以下を実装済み：
 ## 段階的ロードマップ
 
 ### Phase 1: 共通基盤の切り出し（現在地点）
-- 位置情報サービス、通知バナー、地図の基本コンポーネントをパッケージ化
-- project-039 のモデレーション基盤を chikaba_kore のレビュー機能にも導入
+- [x] 位置情報サービスの共通化
+- [x] 通知バナー — project-039 の `ForegroundBannerQueue` パターンを chikaba_kore に導入（`Overlay`ベースの直列キュー表示、SnackBar/システム通知の二重表示を回避）
+- [x] project-039 のモデレーション基盤を chikaba_kore のレビュー機能にも導入
+- [ ] 地図の基本コンポーネントのパッケージ化（設計は `docs/MAP_COMPONENT_INTEGRATION_DESIGN.md` で完了、実装は未着手）
 - 各アプリは引き続き別々にリリース可能な状態を維持
 
 ### Phase 2: 基盤の統一
