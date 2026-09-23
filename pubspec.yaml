@@ -42,7 +42,7 @@ dependencies:
   flutter_local_notifications: ^18.0.1
 
   # アプリ内課金
-  purchases_flutter: ^8.2.1
+  purchases_flutter: ^10.13.1
 
   # JSON
   json_annotation: ^4.9.0
