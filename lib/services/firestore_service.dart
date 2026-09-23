@@ -90,6 +90,7 @@ class FirestoreService {
     Query query = _db
         .collection('reviews')
         .where('facilityId', isEqualTo: facilityId)
+        .where('status', isEqualTo: 'approved')
         .orderBy('createdAt', descending: true)
         .limit(limit);
     if (lastDoc != null) query = query.startAfterDocument(lastDoc);
