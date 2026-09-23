@@ -19,6 +19,15 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   return auth.getCurrentUser();
 });
 
+/// 現在ログイン中のユーザーが管理者(Custom Claim)かどうか。
+/// クチコミの承認待ち一覧画面へのアクセス制御等に使用する。
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  // authStateProvider を watch して、サインイン/サインアウト時に再評価する
+  ref.watch(authStateProvider);
+  final auth = ref.watch(authRepositoryProvider);
+  return auth.isCurrentUserAdmin();
+});
+
 class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   final AuthRepository _repo;
   AuthNotifier(this._repo) : super(const AsyncValue.loading()) {

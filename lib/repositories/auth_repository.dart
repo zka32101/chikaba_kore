@@ -18,4 +18,6 @@ class AuthRepository {
 
   Future<UserModel?> updateUserField(Map<String, dynamic> fields) =>
       _authService.updateUserField(fields);
+
+  Future<bool> isCurrentUserAdmin() => _authService.isCurrentUserAdmin();
 }
