@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**近場コレ (Chikaba Kore)** is a Flutter mobile app that connects locals and visitors through location-based facility discovery, reviews, and community features. It uses Firebase for backend infrastructure and Riverpod for state management.
+**近場まっぷ (chikaba_map)** is a Flutter mobile app that connects locals and visitors through location-based facility discovery, reviews, and community features. It uses Firebase for backend infrastructure and Riverpod for state management.
+
+This repository is the integration target for a broader **map platform** effort: a sister app "あんしんみち" (safe-route navigation, currently in a separate repository) is planned to be integrated here in phases. See `docs/INTEGRATION_PLAN_ANSHINMICHI.md` for the background, comparison, and roadmap. When adding services/providers, prefer patterns that can later be shared across both apps (abstract interface + Firebase implementation + local fallback, as used in the sister app) over quick one-off implementations.
 
 **Key Tech Stack:**
 - Flutter 3.47.2 + Dart 3.11+

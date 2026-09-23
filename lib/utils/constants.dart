@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppConstants {
-  static const String appName = '近場コレ';
+  static const String appName = '近場まっぷ';
   static const String appVersion = '1.0.0';
 
   // タイムアウト

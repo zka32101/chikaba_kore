@@ -1,4 +1,4 @@
-# 近場コレ (Chikaba Kore)
+# 近場まっぷ (chikaba_map)
 
 **「近場で、コレ。」** — 地元民と訪問者が「いま、この場所で」出会える施設発見プラットフォーム
 
@@ -6,9 +6,11 @@
 ![Dart](https://img.shields.io/badge/Dart-3.0+-blue?logo=dart)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+> **統合構想について**: このリポジトリは「chikaba_map」として、姉妹アプリ「あんしんみち」（安全な経路探索）との将来的な統合先です。背景・ロードマップは [docs/INTEGRATION_PLAN_ANSHINMICHI.md](docs/INTEGRATION_PLAN_ANSHINMICHI.md) を参照してください。
+
 ## 📱 アプリ概要
 
-**近場コレ** は、地元民と訪問者が「いま、この場所で」出会える施設発見プラットフォームです。
+**近場まっぷ** は、地元民と訪問者が「いま、この場所で」出会える施設発見プラットフォームです。
 
 ### 🎯 特徴
 
