@@ -24,7 +24,7 @@
 | コア価値 | 施設発見・クチコミ（グルメ・観光） | 安全な経路探索（影・明るさ・雨よけ回避） |
 | Firebaseプロジェクト | `petit-works-apps-9029a` | 別プロジェクト（未確認・要調査） |
 | 認証方式 | Google Sign-In のみ | 匿名サインイン + 電話番号SMS認証（コメント投稿に必須） |
-| 課金基盤 | `in_app_purchase` + 自前 Cloud Functions レシート検証 | RevenueCat (`purchases_flutter`) |
+| 課金基盤 | RevenueCat (`purchases_flutter`)（統一済み） | RevenueCat (`purchases_flutter`) |
 | 通知 | FCM + flutter_local_notifications | FCM + トピック購読 + フォアグラウンド専用バナーキュー |
 | 位置情報 | geolocator 直接利用 | geolocator + 抽象IF/Localフォールバック |
 | 地図表示 | GoogleMap 直利用 + 施設マーカー | 模式図/実地図(Google Maps)切替 + 経路描画・安心スコア色分け |
@@ -59,7 +59,7 @@ project-039 は以下を実装済み：
 | 領域 | 統合方針 |
 |---|---|
 | 位置情報サービス | ほぼ同一実装。即座に共通パッケージ化可能 |
-| 課金基盤 | **RevenueCat に統一**（複数アプリのエンタイトルメントを一元管理しやすいため、chikaba_kore 側を移行） |
+| 課金基盤 | ✅ 完了。**RevenueCat に統一**（複数アプリのエンタイトルメントを一元管理しやすいため、chikaba_kore 側を移行。Webhook経由でFirestore `isPremium` を更新する方式） |
 | 通知 | project-039 のフォアグラウンド専用バナーキュー実装を chikaba_kore にも導入 |
 | モデレーション | project-039 の基盤をパッケージ化し、chikaba_kore のレビュー機能にも適用 |
 | 認証 | 統合アプリでの認証方式の使い分け設計が必要（施設閲覧は緩く、投稿は本人確認必須、等） |
@@ -74,7 +74,7 @@ project-039 は以下を実装済み：
 - 各アプリは引き続き別々にリリース可能な状態を維持
 
 ### Phase 2: 基盤の統一
-- 課金基盤を RevenueCat に統一（chikaba_kore 側を移行）
+- [x] 課金基盤を RevenueCat に統一（chikaba_kore 側を移行）
 - Firebase プロジェクト統合方針を確定・実施
 - 認証方式の使い分け設計を確定
 

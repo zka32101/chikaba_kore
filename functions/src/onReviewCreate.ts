@@ -2,8 +2,6 @@ import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { decideReviewStatus } from './reviewModeration';
 
-const db = admin.firestore();
-
 /**
  * クチコミ投稿時に、投稿者の直近投稿頻度を審査する。
  *
@@ -22,7 +20,7 @@ export const onReviewCreate = functions.firestore
       return;
     }
 
-    const status = await decideReviewStatus(db, userId, new Date());
+    const status = await decideReviewStatus(admin.firestore(), userId, new Date());
     if (status === 'pending') {
       functions.logger.info(
         `Review ${snap.id} by ${userId} exceeded rate limit, moving to pending`

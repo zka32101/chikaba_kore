@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/router.dart';
 import 'config/theme/app_theme.dart';
+import 'providers/billing_provider.dart';
+import 'purchases/purchases_bootstrap.dart';
 import 'services/cache_service.dart';
 import 'services/notification_service.dart';
 import 'utils/logger.dart';
@@ -21,7 +23,16 @@ void main() async {
     appLogger.w('Firebase init skipped (configure firebase_options.dart): $e');
   }
 
-  runApp(const ProviderScope(child: ChikabaKoreApp()));
+  // RevenueCat APIキー未設定時は available: false を返し、
+  // LocalSubscriptionService（デモ用フラグでの疑似購入）へ自動フォールバックする
+  final purchasesResult = await bootstrapPurchases();
+
+  runApp(ProviderScope(
+    overrides: [
+      purchasesAvailableProvider.overrideWithValue(purchasesResult.available),
+    ],
+    child: const ChikabaKoreApp(),
+  ));
 }
 
 class ChikabaKoreApp extends StatelessWidget {

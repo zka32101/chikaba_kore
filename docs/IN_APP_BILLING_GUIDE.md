@@ -1,96 +1,97 @@
-# アプリ内課金実装ガイド
+# アプリ内課金実装ガイド（RevenueCat）
 
 ## 概要
 
 このドキュメントでは、近場まっぷのアプリ内課金（In-App Purchasing）実装について説明します。
+課金基盤には **RevenueCat**（`purchases_flutter`）を使用しています
+（姉妹アプリ「あんしんみち」(project-039) との統合を見据え、課金基盤を統一するため。
+背景は `docs/INTEGRATION_PLAN_ANSHINMICHI.md` を参照）。
 
 ### 実装されている機能
 
-- ✅ プレミアム商品（月額・年額）の定義
-- ✅ 商品情報の取得
+- ✅ プレミアムプラン（月額・年額）のオファリング取得
 - ✅ 購入処理
-- ✅ 購入完成処理（iOS対応）
 - ✅ 購入復元（別デバイスでの購入履歴復元）
-- ✅ プレミアムステータスの自動更新
+- ✅ RevenueCat Webhook 経由でのプレミアムステータス自動更新
 - ✅ UI画面の実装
+- ✅ RevenueCat未接続環境（APIキー未設定）でのローカルフォールバック
 
 ## ファイル構成
 
 ```
 lib/
+├── models/
+│   └── subscription_state.dart           # サブスクリプション状態モデル
 ├── services/
-│   └── billing_service.dart          # 課金機能サービス層
+│   └── subscription_service.dart         # 抽象IF + ローカルフォールバック実装
+├── purchases/
+│   ├── purchases_bootstrap.dart          # RevenueCat SDK 初期化
+│   └── revenuecat_subscription_service.dart  # RevenueCat実装
 ├── providers/
-│   └── billing_provider.dart         # Riverpod状態管理
+│   └── billing_provider.dart             # Riverpod状態管理
 └── views/
     ├── screens/
-    │   └── premium_screen.dart       # プレミアム購入画面
+    │   └── premium_screen.dart           # プレミアム購入画面
     └── widgets/
-        └── premium_badge.dart        # ステータス表示ウィジェット
+        └── premium_badge.dart            # ステータス表示ウィジェット
+
+functions/src/
+└── revenuecatWebhook.ts                  # RevenueCat Server Notifications 受信
 ```
 
 ## 実装詳細
 
-### 1. BillingService (lib/services/billing_service.dart)
+### 1. SubscriptionService (lib/services/subscription_service.dart)
 
-In-App Purchase APIの直接的なラッパー。
-
-**商品ID定義:**
-```dart
-static const String _premiumMonthlyId = 'com.yourwish.chikabamap.premium_monthly';
-static const String _premiumYearlyId = 'com.yourwish.chikabamap.premium_yearly';
-```
-
-**主要メソッド:**
+抽象インターフェース。RevenueCat未接続時は `LocalSubscriptionService`
+（端末内フラグでの疑似購入、デモ用）にフォールバックする。
 
 | メソッド | 説明 |
 |---------|------|
-| `init()` | 課金機能が利用可能か確認・初期化 |
-| `_queryProducts()` | 商品情報をストアから取得 |
-| `purchaseProduct(product)` | 購入開始 |
-| `completePurchase(purchase)` | 購入完成（iOS等で必須） |
+| `getStatus()` | 現在のサブスクリプション状態を取得 |
+| `purchasePremium(productId)` | 指定プランを購入 |
 | `restorePurchases()` | 復元（別デバイスの購入履歴） |
 
-### 2. BillingProvider (lib/providers/billing_provider.dart)
+### 2. RevenueCatSubscriptionService (lib/purchases/revenuecat_subscription_service.dart)
 
-Riverpod経由のアプリ状態管理。
+`purchases_flutter` のラッパー。`premium` エンタイトルメントの状態から
+`SubscriptionState` を導出する。
 
-**主要プロバイダ:**
+### 3. purchases_bootstrap.dart
+
+RevenueCat SDK を初期化する。`--dart-define=REVENUECAT_IOS_API_KEY=...` /
+`REVENUECAT_ANDROID_API_KEY` が未設定の場合は `available: false` を返し、
+自動的にローカル実装へフォールバックする。
+
+`linkPurchasesToUser(uid)` は RevenueCat の `app_user_id` を Firebase Auth の
+uid に一致させる（`Purchases.logIn(uid)`）。ログイン時（`auth_provider.dart`）
+に呼ばれ、これにより RevenueCat Webhook が `app_user_id` をそのまま
+`users/{uid}` のドキュメントIDとして使える。
+
+### 4. billing_provider.dart
 
 | プロバイダ | 型 | 説明 |
 |----------|-----|------|
-| `billingServiceProvider` | Provider | BillingServiceインスタンス |
-| `billingAvailableProvider` | FutureProvider | 課金機能利用可否 |
-| `billingProductsProvider` | FutureProvider | 商品一覧 |
-| `billingPurchaseStreamProvider` | StreamProvider | 購入イベントストリーム |
-| `billingNotifierProvider` | StateNotifierProvider | 購入操作・状態 |
+| `purchasesAvailableProvider` | Provider（main.dartでoverride） | RevenueCat利用可否 |
+| `subscriptionServiceProvider` | Provider | RevenueCat or ローカル実装 |
+| `availablePackagesProvider` | FutureProvider | 購入可能なプラン一覧 |
+| `subscriptionStatusProvider` | FutureProvider | 現在のサブスクリプション状態 |
+| `subscriptionNotifierProvider` | StateNotifierProvider | 購入・復元操作 |
 
-**BillingNotifier:**
-```dart
-class BillingNotifier extends StateNotifier<AsyncValue<void>> {
-  Future<bool> purchaseProduct(ProductDetails product)
-  Future<void> completePurchase(PurchaseDetails purchase)
-  Future<void> restorePurchases()
-}
-```
-
-### 3. PremiumScreen (lib/views/screens/premium_screen.dart)
+### 5. PremiumScreen (lib/views/screens/premium_screen.dart)
 
 ユーザーがプレミアムを購入する画面。
 
 **機能:**
 - プレミアム会員特典の説明表示
-- 月額・年額プランの表示
+- 月額・年額プランの表示（RevenueCat Offerings から取得）
 - 購入ボタン
 - 以前の購入の復元ボタン
 
-### 4. Premium Badge & Info Card (lib/views/widgets/premium_badge.dart)
+### 6. Premium Badge & Info Card (lib/views/widgets/premium_badge.dart)
 
-**PremiumBadge:**
-ユーザープロフィールなどに表示するプレミアム会員インジケーター
-
-**PremiumInfoCard:**
-ホーム画面などで使用するプレミアム情報カード
+`currentUserProvider`（Firestore の `users/{uid}.isPremium`）を参照するのみで、
+RevenueCat には直接依存しない（Webhook が Firestore を更新するため）。
 
 ## 購入フロー
 
@@ -99,32 +100,35 @@ class BillingNotifier extends StateNotifier<AsyncValue<void>> {
          ↓
 PremiumScreen._handlePurchase()
          ↓
-BillingNotifier.purchaseProduct()
+SubscriptionNotifier.purchase(productId)
          ↓
-BillingService.purchaseProduct() 
+RevenueCatSubscriptionService.purchasePremium()
          ↓
-InAppPurchase.buyNonConsumable() → ストアアプリへ
+Purchases.purchasePackage() → ストアアプリへ
          ↓
 （ユーザーがストアで確認・支払い）
          ↓
-purchaseUpdates ストリーム → PurchaseStatus.purchased
+RevenueCat が購入を検知
          ↓
-BillingNotifier.completePurchase()
+RevenueCat Webhook → Cloud Functions revenuecatWebhook
          ↓
-AuthNotifier.upgradeToPremium() → Firestore更新
+Firestore users/{uid}.isPremium = true ✅
          ↓
-UserModel.isPremium = true ✅
+currentUserProvider が Firestore の変更を検知して自動反映
 ```
 
 ## プレミアムステータスの自動更新
 
-購入完了時、以下の流れで自動的にFirestoreが更新されます：
+購入完了後、以下の流れで **サーバー側から** 自動的に Firestore が更新されます
+（クライアントが直接 `isPremium` を書き込むことはない）：
 
-1. **BillingNotifier.completePurchase()** が呼ばれる
-2. **_upgradeToPremium()** を実行
-3. **AuthNotifier.upgradeToPremium()** を呼び出し
-4. **AuthRepository** → **AuthService** → **Firestore** 更新
-5. **currentUserProvider** が自動で再フェッチ
+1. RevenueCat が購入・更新・失効を検知
+2. RevenueCat が設定された Webhook URL（`revenuecatWebhook`）にイベント通知
+3. Cloud Functions が Authorization ヘッダーで正当性を検証
+4. イベント種別に応じて Firestore の `isPremium` を更新
+   - 付与: `INITIAL_PURCHASE` / `RENEWAL` / `UNCANCELLATION` / `PRODUCT_CHANGE`
+   - 剥奪: `EXPIRATION`
+5. クライアント側は `currentUserProvider`（Firestore監視）経由で自動反映
 
 ## 使用例
 
@@ -148,14 +152,37 @@ PremiumBadge()  // デフォルトサイズ
 PremiumBadge(size: 24, color: Colors.amber.shade400)
 ```
 
-### プレミアム情報カードの表示
+## 設定手順
 
-```dart
-PremiumInfoCard(
-  onUpgradePressed: () {
-    context.push('/premium');
-  },
-)
+### 1. RevenueCat プロジェクト作成
+
+1. [RevenueCat ダッシュボード](https://app.revenuecat.com) でプロジェクトを作成
+2. App Store Connect / Google Play Console と連携
+3. `premium` エンタイトルメントを作成し、月額・年額の Product を紐付ける
+
+商品ID:
+| 商品ID | 用途 |
+|-------|------|
+| `com.yourwish.chikabamap.premium_monthly` | プレミアム月額 |
+| `com.yourwish.chikabamap.premium_yearly` | プレミアム年額 |
+
+### 2. APIキーの注入
+
+```bash
+flutter build apk --release \
+  --dart-define=REVENUECAT_IOS_API_KEY=... \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=...
+```
+
+### 3. Webhook 設定
+
+1. RevenueCat ダッシュボード → Project Settings → Integrations → Webhooks
+2. URL に Cloud Functions のデプロイ先URL（`revenuecatWebhook`）を設定
+3. Authorization header に秘密文字列を設定
+4. 同じ値を Cloud Functions の環境変数 `REVENUECAT_WEBHOOK_SECRET` に設定
+
+```bash
+firebase functions:secrets:set REVENUECAT_WEBHOOK_SECRET
 ```
 
 ## ストア設定
@@ -165,37 +192,17 @@ PremiumInfoCard(
 1. App Store Connect にログイン
 2. **マイアプリ** → **近場まっぷ** を選択
 3. **App内課金** → **新規作成**
-4. 以下の商品を作成：
-
-| 商品ID | 名前 | 価格帯 |
-|-------|------|--------|
-| `com.yourwish.chikabamap.premium_monthly` | プレミアム月額 | $0.99 |
-| `com.yourwish.chikabamap.premium_yearly` | プレミアム年額 | $9.99 |
+4. 商品ID・価格帯を RevenueCat ダッシュボードの Product 定義と一致させる
 
 ### Android設定
 
 1. Google Play Console にログイン
 2. **近場まっぷ** → **商品** → **定期購入** を選択
-3. 以下の商品を作成：
-
-| SKU | 名前 | 価格帯 |
-|-----|------|--------|
-| `com.yourwish.chikabamap.premium_monthly` | プレミアム月額 | ¥99 |
-| `com.yourwish.chikabamap.premium_yearly` | プレミアム年額 | ¥990 |
+3. 商品ID（SKU）を RevenueCat ダッシュボードの Product 定義と一致させる
 
 **注意:** 商品ID（SKU）は完全に一致している必要があります。
 
 ## テスト
-
-### ローカルテスト
-
-```bash
-# テストビルド
-flutter run --debug
-
-# リリースビルド（実デバイス推奨）
-flutter build apk --release
-```
 
 ### テスト購入（Android）
 
@@ -204,65 +211,45 @@ Google Play Console のテストアカウントを設定：
 1. **設定** → **ライセンステスト** → **ライセンステスター**
 2. テスト用Googleアカウントを追加
 3. テスト用APKでそのアカウントでサインイン
-4. ストアから "テスト購入" が可能
 
 ### テスト購入（iOS）
 
-Xcode でテスト用アカウント（Sandbox）を使用：
-
-1. **Settings** → **Apps & Websites** → **Test User** 
-2. テスト用Apple IDを作成
-3. App Store で "テスト購入" が可能
+Xcode でテスト用アカウント（Sandbox）を使用。
 
 ## トラブルシューティング
 
 ### 商品が表示されない
 
-- ✓ 商品IDが完全に一致しているか確認
+- ✓ RevenueCat ダッシュボードで Offering に Package が紐付いているか確認
 - ✓ ストアで商品が承認されているか確認
-- ✓ テスト用アカウントが設定されているか確認
+- ✓ APIキーが正しく注入されているか（`--dart-define`）確認
 
-### 購入できない
+### 購入できても isPremium が更新されない
 
-- ✓ テストアカウントでストアにサインインしているか
-- ✓ デバイスにクレジットカードが登録されているか
-- ✓ `BillingService.init()` が成功しているか
-
-### 復元ボタンが機能しない
-
-- ✓ `InAppPurchase.restorePurchases()` が正常に実行されているか
-- ✓ Firestore の isPremium フィールドが更新されているか
+- ✓ Webhook の Authorization header 設定が一致しているか
+- ✓ `REVENUECAT_WEBHOOK_SECRET` が Cloud Functions に設定されているか
+- ✓ Cloud Functions のログでイベントを受信できているか確認
+- ✓ RevenueCat の `app_user_id` が Firebase Auth の `uid` と一致しているか
+  （`linkPurchasesToUser` がログイン時に呼ばれているか確認）
 
 ## セキュリティ考慮事項
 
-1. **購入検証**
-   - 本番環境では、サーバー側で購入レシート検証を実装してください
-   - クライアント側のフラグだけでは不十分です
-
-2. **Firestore セキュリティルール**
-   ```
-   match /users/{userId} {
-     allow read: if request.auth.uid == userId;
-     allow update: if request.auth.uid == userId
-       && !request.resource.data.isPremium  // クライアントから直接変更を防ぐ
-   }
-   ```
-
+1. **購入検証はサーバー側（RevenueCat + Webhook）で実施**
+   - クライアント側から `isPremium` を直接更新することはできない
+     （`firestore.rules` で Cloud Functions 経由の更新のみ許可）
+2. **Webhook の認証**
+   - Authorization header の秘密文字列で検証（一致しなければ401を返す）
 3. **ログ記録**
-   - 購入イベントをサーバーログに記録
-   - 不正な isPremium フラグの変更を検出
+   - `revenuecatWebhook` は付与・剥奪の両方を Cloud Functions ログに記録
 
 ## 今後の改善
 
-- [ ] サーバー側での購入レシート検証
-- [ ] 複数の定期購入プランの管理
-- [ ] キャンセル・払い戻し対応
-- [ ] サブスクリプション設定画面
+- [ ] サブスクリプション設定画面（プラン変更・解約導線）
 - [ ] 無料トライアル対応
 - [ ] 分析・レポート機能
 
 ## 参考資料
 
-- [In-App Purchase | Flutter](https://pub.dev/packages/in_app_purchase)
-- [App Store: In-App Purchase](https://developer.apple.com/in-app-purchase/)
-- [Google Play: In-App Billing](https://developer.android.com/google-play/billing)
+- [RevenueCat Documentation](https://www.revenuecat.com/docs/getting-started)
+- [purchases_flutter | pub.dev](https://pub.dev/packages/purchases_flutter)
+- [RevenueCat Webhooks](https://www.revenuecat.com/docs/integrations/webhooks)

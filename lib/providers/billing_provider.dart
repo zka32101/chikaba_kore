@@ -1,141 +1,82 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import '../services/billing_service.dart';
-import '../services/receipt_verification_service.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import '../models/subscription_state.dart';
+import '../purchases/purchases_bootstrap.dart';
+import '../purchases/revenuecat_subscription_service.dart';
+import '../services/subscription_service.dart';
 import '../utils/logger.dart';
 import 'auth_provider.dart';
 
-final billingServiceProvider = Provider<BillingService>((ref) => BillingService());
+/// main.dart で bootstrapPurchases() の結果を override する。
+/// override が無い場合（テスト等）はデフォルトで利用不可扱い。
+final purchasesAvailableProvider = Provider<bool>((ref) => false);
 
-final receiptVerificationProvider = Provider<ReceiptVerificationService>(
-  (ref) => ReceiptVerificationService(),
-);
-
-/// 課金機能が利用可能か
-final billingAvailableProvider = FutureProvider<bool>((ref) async {
-  final billing = ref.watch(billingServiceProvider);
-  return billing.init();
+final subscriptionServiceProvider = Provider<SubscriptionService>((ref) {
+  final available = ref.watch(purchasesAvailableProvider);
+  return available ? RevenueCatSubscriptionService() : LocalSubscriptionService();
 });
 
-/// 利用可能なプロダクト一覧
-final billingProductsProvider = FutureProvider<List<ProductDetails>>((ref) async {
-  final available = await ref.watch(billingAvailableProvider.future);
-  if (!available) return [];
-  final billing = ref.watch(billingServiceProvider);
-  return billing.availableProducts;
+/// 購入可能なプラン一覧（RevenueCat の Offerings）。ローカル実装時は空リスト。
+final availablePackagesProvider = FutureProvider<List<Package>>((ref) async {
+  final service = ref.watch(subscriptionServiceProvider);
+  if (service is! RevenueCatSubscriptionService) return [];
+  return service.getAvailablePackages();
 });
 
-/// 購入ストリーム監視
-final billingPurchaseStreamProvider =
-    StreamProvider<List<PurchaseDetails>>((ref) {
-  final billing = ref.watch(billingServiceProvider);
-  return billing.purchaseUpdates;
+/// 現在のサブスクリプション状態
+final subscriptionStatusProvider = FutureProvider<SubscriptionState>((ref) async {
+  final service = ref.watch(subscriptionServiceProvider);
+  return service.getStatus();
 });
 
-/// 購入処理（ローディング状態管理）
-class BillingNotifier extends StateNotifier<AsyncValue<void>> {
-  final BillingService _service;
-  final ReceiptVerificationService _verificationService;
-  final Ref? _ref;
+/// 購入・復元処理（ローディング状態管理）
+class SubscriptionNotifier extends StateNotifier<AsyncValue<void>> {
+  final SubscriptionService _service;
+  final Ref _ref;
 
-  BillingNotifier(
-    this._service,
-    this._verificationService, [
-    this._ref,
-  ]) : super(const AsyncValue.data(null));
+  SubscriptionNotifier(this._service, this._ref) : super(const AsyncValue.data(null));
 
-  /// プロダクトを購入
-  Future<bool> purchaseProduct(ProductDetails product) async {
+  /// プランを購入。Firestore の isPremium は RevenueCat Webhook
+  /// (functions/src/revenuecatWebhook.ts) が非同期に更新するため、ここでは
+  /// 購入操作のみ行い、完了後に currentUserProvider を再フェッチして反映を待つ。
+  Future<bool> purchase(String productId) async {
     state = const AsyncValue.loading();
     try {
-      final success = await _service.purchaseProduct(product);
+      await _service.purchasePremium(productId);
+      await _refreshUserData();
       state = const AsyncValue.data(null);
-      return success;
+      return true;
     } catch (e, st) {
+      appLogger.e('Purchase error', error: e);
       state = AsyncValue.error(e, st);
       return false;
     }
   }
 
-  /// 購入完成（レシート検証付き）
-  Future<void> completePurchase(PurchaseDetails purchase) async {
-    try {
-      // サーバー側でレシートを検証
-      final verified = await _verificationService.verifyPurchaseAndUpdatePremium(
-        purchase,
-      );
-
-      if (!verified) {
-        appLogger.w('Purchase verification failed: ${purchase.productID}');
-        throw Exception('Purchase verification failed');
-      }
-
-      // 検証成功後、ネイティブ側で購入完成処理
-      await _service.completePurchase(purchase);
-
-      // プレミアムステータスは既にサーバー側で更新されている
-      // ローカルのキャッシュを更新
-      if (_ref != null) {
-        await _refreshUserData();
-      }
-    } catch (e) {
-      appLogger.e('Complete purchase error', error: e);
-      rethrow;
-    }
-  }
-
-  /// ユーザーデータを更新（サーバー側で既にプレミアム更新済み）
-  Future<void> _refreshUserData() async {
-    if (_ref == null) return;
-    try {
-      // currentUserProvider を無効化して再フェッチ
-      _ref!.refresh(currentUserProvider);
-      appLogger.i('User data refreshed');
-    } catch (e) {
-      appLogger.w('Failed to refresh user data: $e');
-    }
-  }
-
-  /// 購入復元
   Future<void> restorePurchases() async {
     state = const AsyncValue.loading();
     try {
       await _service.restorePurchases();
-      // 復元完了後、ユーザーデータを更新
-      if (_ref != null) {
-        await _refreshUserData();
-      }
+      await _refreshUserData();
       state = const AsyncValue.data(null);
     } catch (e, st) {
+      appLogger.e('Restore purchases error', error: e);
       state = AsyncValue.error(e, st);
       rethrow;
     }
   }
+
+  Future<void> _refreshUserData() async {
+    try {
+      _ref.invalidate(currentUserProvider);
+    } catch (e) {
+      appLogger.w('Failed to refresh user data: $e');
+    }
+  }
 }
 
-final billingNotifierProvider =
-    StateNotifierProvider<BillingNotifier, AsyncValue<void>>((ref) {
-  final service = ref.watch(billingServiceProvider);
-  final verificationService = ref.watch(receiptVerificationProvider);
-  return BillingNotifier(service, verificationService, ref);
-});
-
-/// 購入更新を監視して自動で完成処理
-final purchaseCompletionProvider = FutureProvider<void>((ref) async {
-  final billingNotifier = ref.watch(billingNotifierProvider.notifier);
-  final purchases = ref.watch(billingPurchaseStreamProvider);
-
-  await purchases.when(
-    data: (purchaseList) async {
-      for (final purchase in purchaseList) {
-        if (purchase.status == PurchaseStatus.purchased ||
-            purchase.status == PurchaseStatus.restored) {
-          // 購入完成処理
-          await billingNotifier.completePurchase(purchase);
-        }
-      }
-    },
-    loading: () {},
-    error: (error, stack) {},
-  );
+final subscriptionNotifierProvider =
+    StateNotifierProvider<SubscriptionNotifier, AsyncValue<void>>((ref) {
+  final service = ref.watch(subscriptionServiceProvider);
+  return SubscriptionNotifier(service, ref);
 });

@@ -1,117 +1,96 @@
 # デプロイメント準備チェックリスト
 
-すべての実装フェーズが完了しました。本番環境へのデプロイ前に以下のステップを実行してください。
+本番環境へのデプロイ前に以下のステップを実行してください。課金基盤は RevenueCat を使用します
+（詳細: `docs/IN_APP_BILLING_GUIDE.md` / `docs/SECURITY_IMPLEMENTATION.md`）。
 
-## 1. Firebase 環境変数設定 ✅
+## 1. RevenueCat セットアップ
 
-### Apple App Store Secret
+### 1.1 プロジェクト作成・ストア連携
+
+1. [RevenueCat ダッシュボード](https://app.revenuecat.com) でプロジェクトを作成
+2. App Store Connect / Google Play Console と連携
+3. `premium` エンタイトルメントを作成し、月額・年額の Product を紐付ける
+
+商品 ID:
+- `com.yourwish.chikabamap.premium_monthly`（月額）
+- `com.yourwish.chikabamap.premium_yearly`（年額）
+
+### 1.2 APIキー取得
+
+RevenueCat ダッシュボード → Project Settings → API Keys から
+iOS/Android それぞれの Public API Key を取得する。
+
+### 1.3 Webhook 設定
+
+1. RevenueCat ダッシュボード → Project Settings → Integrations → Webhooks
+2. URL に Cloud Functions のデプロイ先URL（`revenuecatWebhook`）を設定
+3. Authorization header に秘密文字列を設定
+
+## 2. Firebase 環境変数設定
 
 ```bash
-firebase functions:config:set apple.app_secret="YOUR_SHARED_SECRET"
+firebase functions:secrets:set REVENUECAT_WEBHOOK_SECRET
 ```
 
-**取得方法:**
-1. [App Store Connect](https://appstoreconnect.apple.com) にログイン
-2. 「My Apps」 → 「近場まっぷ」 → 「アプリ内課金」
-3. 「Shared Secret」をコピー
+1.3 で RevenueCat 側に設定した秘密文字列と同じ値を設定する。
 
-### Google Play Service Account
+## 3. Cloud Functions デプロイ
 
 ```bash
-# service-account.json を Base64 エンコード
-firebase functions:config:set google.service_account="$(cat /path/to/service-account.json | jq -c .)"
-```
-
-**取得方法:**
-1. [Google Play Console](https://play.google.com/console) にアクセス
-2. 「設定」 → 「API とアクセス」 → 「サービスアカウント」
-3. JSON ファイルをダウンロード
-4. サービスアカウントに以下の権限を確認：
-   - Android Publisher API: アクセス可能
-   - `androidpublisher` スコープ
-
-## 2. Cloud Functions デプロイ
-
-```bash
-# 関数をデプロイ
 cd /home/user/chikaba_kore/functions
 npm install
-firebase deploy --only functions:verifyPurchaseReceipt
+npm run build
+firebase deploy --only functions
 ```
 
 **確認:**
-- Firebase コンソール → Functions でステータスが「OK」
-- ログに `verifyPurchaseReceipt` が表示される
+- Firebase コンソール → Functions で `revenuecatWebhook` / `onReviewCreate` の
+  ステータスが「OK」
+- ログにエラーが出ていないこと
 
-## 3. Firestore セキュリティルール発行
+## 4. Firestore セキュリティルール発行
 
 ```bash
 cd /home/user/chikaba_kore
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 **確認内容:**
-- `isPremium` フィールドが Cloud Functions のみで更新可能
+- `isPremium` フィールドが Cloud Functions（`revenuecatWebhook`）のみで更新可能
 - クライアントからの直接変更はブロックされている
 
-```firestore
-// firestore.rules 内の検証ルール
-function isValidUserUpdate(oldData, newData) {
-  let isPremiumUnchanged = (('isPremium' in oldData) && (newData.isPremium == oldData.isPremium))
-    || (!('isPremium' in oldData) && !('isPremium' in newData));
-  
-  return isPremiumUnchanged && isValidUserCreate(newData);
-}
-```
+## 5. iOS 側のセットアップ
 
-## 4. iOS 側のセットアップ
+### 5.1 App Store Connect で商品登録
 
-### 4.1 App Store Connect で商品登録
-
-商品 ID:
-- `com.yourwish.chikabamap.premium_monthly` (月額 ¥600)
-- `com.yourwish.chikabamap.premium_yearly` (年額 ¥5,900)
-
-**ステップ:**
 1. App Store Connect → 「My Apps」 → 「近場まっぷ」
 2. 「アプリ内課金」 → 「+」 から新規商品追加
 3. 商品タイプ: 「自動更新購読」
-4. 各商品の価格とローカライズ情報を設定
-5. 「同意と同意」で確認
+4. 各商品の価格とローカライズ情報を設定（商品IDは RevenueCat 側の Product 定義と一致させる）
 
-### 4.2 Shared Secret 設定確認
+### 5.2 ビルド時の APIキー注入
 
 ```bash
-# Functions の環境変数に設定済みか確認
-firebase functions:config:get apple.app_secret
+flutter build ios --release \
+  --dart-define=REVENUECAT_IOS_API_KEY=...
 ```
 
-## 5. Android 側のセットアップ
+## 6. Android 側のセットアップ
 
-### 5.1 Google Play Console で商品登録
+### 6.1 Google Play Console で商品登録
 
-SKU ID（商品 ID と同じ）:
-- `com.yourwish.chikabamap.premium_monthly`
-- `com.yourwish.chikabamap.premium_yearly`
-
-**ステップ:**
 1. Google Play Console → 「近場まっぷ」 → 「商品」
 2. 「サブスクリプション」 → 「新しいサブスクリプション」
-3. SKU ID と価格を設定
-4. 各言語で説明を追加
+3. SKU ID と価格を設定（RevenueCat 側の Product 定義と一致させる）
 
-### 5.2 サービスアカウント権限確認
+### 6.2 ビルド時の APIキー注入
 
 ```bash
-# Functions 環境から確認
-firebase functions:config:get google.service_account
+flutter build apk --release \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=...
 ```
 
-**必要な権限:**
-- Google Play 管理 API: 有効
-- Android Publisher API へのアクセス
-
-## 6. テスト（本番デプロイ前）
+## 7. テスト（本番デプロイ前）
 
 ### iOS Sandbox テスト
 
@@ -133,7 +112,7 @@ firebase functions:config:get google.service_account
 #    「設定」 → 「ライセンス テスト」 → テストアカウント追加
 
 # 2. テスト APK をテストデバイスにインストール
-flutter build apk --release
+flutter build apk --release --dart-define=REVENUECAT_ANDROID_API_KEY=...
 
 # 3. テストアカウントで Google アカウントにログイン
 
@@ -141,7 +120,12 @@ flutter build apk --release
 #    購入ボタン → Google Play Billing テスト決済
 ```
 
-## 7. 本番環境検証
+### RevenueCat Webhook テスト
+
+RevenueCat ダッシュボードの Webhook 設定画面から「Send Test Event」を送信し、
+Cloud Functions のログで正しく受信・処理できているか確認する。
+
+## 8. 本番環境検証
 
 ### Cloud Firestore ログ監視
 
@@ -158,47 +142,50 @@ firebase firestore --collection=users --document={userId}
 ### Cloud Functions ログ確認
 
 ```bash
-firebase functions:log --only verifyPurchaseReceipt
+firebase functions:log --only revenuecatWebhook
 
 # 以下の情報が記録されているか確認:
-# - Receipt 検証成功ログ
+# - Webhook 受信ログ（付与/剥奪）
 # - Firestore 更新ログ
-# - エラーログ（失敗した場合）
+# - Authorization 検証失敗があれば401ログ
 ```
 
-## 8. デプロイメント前の最終チェック
+## 9. デプロイメント前の最終チェック
 
-- [ ] Apple App Secret を Firebase に設定
-- [ ] Google Play Service Account を Firebase に設定
+- [ ] RevenueCat プロジェクト作成・ストア連携済み
+- [ ] `premium` エンタイトルメント・Product 設定済み
+- [ ] RevenueCat Webhook Secret を Firebase Functions に設定
 - [ ] Cloud Functions をデプロイ
 - [ ] Firestore セキュリティルールをデプロイ
 - [ ] iOS App Store Connect で商品登録
 - [ ] Android Google Play Console で商品登録
 - [ ] iOS Sandbox テスト完了
 - [ ] Android テストアカウントテスト完了
+- [ ] RevenueCat Webhook テストイベント送信・受信確認
 - [ ] Firestore ログで isPremium 更新を確認
-- [ ] Cloud Functions ログにエラーが無いか確認
 - [ ] クライアント（アプリ）側から isPremium を直接変更できないことを確認
 
-## 9. 本番デプロイ実行
+## 10. 本番デプロイ実行
 
 すべてのチェックが完了したら、以下を実行：
 
 ```bash
 # 1. Firebase Functions を本番環境にデプロイ
-firebase deploy --only functions:verifyPurchaseReceipt
+firebase deploy --only functions
 
 # 2. Firestore ルールを本番環境に発行
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules,firestore:indexes
 
 # 3. 最新版のアプリをビルド・リリース
-flutter build apk --release    # Android
-flutter build ios --release    # iOS（macOS のみ）
+flutter build apk --release \
+  --dart-define=REVENUECAT_ANDROID_API_KEY=...
+flutter build ios --release \
+  --dart-define=REVENUECAT_IOS_API_KEY=...
 
 # 4. Google Play Store / App Store にアップロード
 ```
 
-## 10. 本番環境でのモニタリング
+## 11. 本番環境でのモニタリング
 
 ### 定期監視項目
 
@@ -212,39 +199,25 @@ flutter build ios --release    # iOS（macOS のみ）
 2. **エラー検出**
    ```bash
    # 毎日確認
-   firebase functions:log --only verifyPurchaseReceipt | grep -i error
+   firebase functions:log --only revenuecatWebhook | grep -i error
    ```
 
-3. **不正検出**
-   - 同一ユーザーの短時間での複数購入
-   - Receipt 検証失敗が多発
-   - premiumProduct と実際の購入 SKU の不一致
-
-### アラート設定（推奨）
-
-```bash
-# Cloud Functions で例外発生時にログ
-console.error(`Purchase verification failed: ${error.message}`);
-
-# Firestore Analytics で isPremium 変更を監視
-```
+3. **RevenueCat ダッシュボードの分析画面**
+   - MRR（月次経常収益）、チャーン率等を定期確認
 
 ## トラブルシューティング
 
-### Receipt 検証が失敗する
+### RevenueCat Webhook が届かない / isPremium が更新されない
 
-**原因の特定:**
-1. iOS: Sandbox vs Production 環境の混在
-2. Android: Service Account の権限不足
-
-**解決:**
 ```bash
-# Functions 設定を確認
-firebase functions:config:get
-
-# ログで詳細エラーを確認
-firebase functions:log --only verifyPurchaseReceipt
+# Functions ログを確認
+firebase functions:log --only revenuecatWebhook
 ```
+
+**確認事項:**
+- Webhook URL がデプロイ先と一致しているか
+- Authorization header の秘密文字列が一致しているか
+- `linkPurchasesToUser` がログイン時に呼ばれているか（`app_user_id` が Firebase UID と一致しているか）
 
 ### Firestore 権限エラー
 
@@ -264,11 +237,11 @@ firebase deploy --only firestore:rules
 Product not found in catalog
 ```
 
-→ 商品 ID が App Store Connect / Google Play Console と完全一致しているか確認
+→ 商品 ID が RevenueCat / App Store Connect / Google Play Console で完全一致しているか確認
 
 ## 参考資料
 
-- [App Store Server Notifications](https://developer.apple.com/documentation/app-store-server-notifications)
-- [Google Play Billing Documentation](https://developer.android.com/google-play/billing)
+- [RevenueCat Documentation](https://www.revenuecat.com/docs/getting-started)
+- [RevenueCat Webhooks](https://www.revenuecat.com/docs/integrations/webhooks)
 - [Firestore Security Rules](https://firebase.google.com/docs/firestore/security/start)
 - [Cloud Functions for Firebase](https://firebase.google.com/docs/functions)

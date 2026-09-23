@@ -3,62 +3,70 @@
 ## 概要
 
 アプリ内課金機能のセキュリティを強化するための実装ガイドです。
+課金基盤には RevenueCat を使用しており、Firestore の `isPremium` は
+RevenueCat Webhook 経由でのみサーバー側から更新されます
+（クライアントから直接更新することはできません）。
 
 ## 実装されたセキュリティ対策
 
-### 1. サーバー側でのレシート検証 ✅
+### 1. RevenueCat Webhook による検証済み更新 ✅
 
-**ファイル:** `lib/services/receipt_verification_service.dart`
-
-- iOS: App Store Connect API でレシート検証
-- Android: Google Play Billing API でレシート検証
-- Cloud Functions で検証実施
-
-**利点:**
-- クライアント側での改ざんを防止
-- App Store/Google Play の公式APIで検証
-- 検証失敗時はプレミアムフラグを更新しない
-
-### 2. Cloud Functions による検証 ✅
-
-**ファイル:** `functions/src/verifyPurchaseReceipt.ts`
+**ファイル:** `functions/src/revenuecatWebhook.ts`
 
 ```typescript
-// 購入レシートをサーバー側で検証
-export const verifyPurchaseReceipt = functions.https.onCall(
-  async (data, context) => {
-    // 1. ユーザー認証確認
-    // 2. レシート検証（Apple/Google）
+// RevenueCat の Server Notifications を受信し、Firestore の isPremium を更新
+export const revenuecatWebhook = functions.https.onRequest(
+  async (req, res) => {
+    // 1. Authorization ヘッダーで正当なリクエストか検証
+    // 2. イベント種別（購入/更新/失効）を判定
     // 3. Firestore の isPremium 更新
   }
 );
 ```
 
+**利点:**
+- クライアント側での改ざんを防止（購入検証は RevenueCat 側で実施済み）
+- App Store/Google Play の実際の購入状態を RevenueCat が継続的に追跡
+- 失効（`EXPIRATION`）イベントも自動的に反映される
+
 **流れ:**
 ```
-クライアント購入
+クライアント購入（RevenueCat SDK経由）
     ↓
-ReceiptVerificationService.verifyPurchaseAndUpdatePremium()
+RevenueCat が Apple/Google の購入を検証
     ↓
-Cloud Function: verifyPurchaseReceipt()
+RevenueCat → Webhook 通知 → Cloud Functions: revenuecatWebhook()
     ↓
-Apple App Store / Google Play API で検証
+Authorization ヘッダー検証
     ↓
-検証成功 → Firestore isPremium = true
-検証失敗 → エラー返却（Firestore 更新なし）
+検証成功 → イベント種別に応じて Firestore isPremium を更新
+検証失敗 → 401エラー返却（Firestore 更新なし）
 ```
+
+### 2. イベント種別による付与・剥奪判定 ✅
+
+**ファイル:** `functions/src/revenuecatWebhook.ts` の `decidePremiumUpdate()`
+
+| イベント種別 | 判定 |
+|---|---|
+| `INITIAL_PURCHASE` / `RENEWAL` / `UNCANCELLATION` / `PRODUCT_CHANGE` | 付与（`isPremium: true`） |
+| `EXPIRATION` | 剥奪（`isPremium: false`） |
+| `CANCELLATION`（自動更新停止のみ、即座には失効しない） | 無視（状態維持） |
+| その他未知のイベント | 無視（状態維持） |
+
+純関数として分離されており、`functions/src/revenuecatWebhook.test.ts` でユニットテスト済み。
 
 ### 3. Firestore セキュリティルール ✅
 
 **ファイル:** `firestore.rules`
 
 ```firestore
-// クライアントから isPremium を直接変更禁止
-allow update: if isPremiumUnchanged
-  && isValidUserCreate(newData);
-
-// Cloud Functions のみが isPremium を更新可能
-// (Firebase Admin SDK で認証回避)
+// isPremium フィールドの直接変更を禁止
+function isValidUserUpdate(oldData, newData) {
+  let isPremiumUnchanged = (('isPremium' in oldData) && (newData.isPremium == oldData.isPremium))
+    || (!('isPremium' in oldData) && !('isPremium' in newData));
+  return isPremiumUnchanged && isValidUserCreate(newData);
+}
 ```
 
 **ルール内容:**
@@ -67,60 +75,60 @@ allow update: if isPremiumUnchanged
 |-----|--------|------|------|
 | isPremium 読み取り | 本人 | ✅ | ステータス表示用 |
 | isPremium 直接変更 | 本人 | ❌ | 不正防止 |
-| isPremium 更新 | Cloud Functions | ✅ | 検証後のみ |
+| isPremium 更新 | Cloud Functions (`revenuecatWebhook`) | ✅ | Admin SDK 経由でルールをバイパス |
 
-### 4. ローカルストレージ対策
+### 4. RevenueCat の app_user_id を Firebase UID に一致させる
 
-**実装:** 購入後は以下の流れで更新
-```dart
-// ❌ 直接フラグを立てない
-// isPremium = true;  // これは禁止
+**ファイル:** `lib/purchases/purchases_bootstrap.dart` の `linkPurchasesToUser()`
 
-// ✅ サーバー検証後にフェッチ
-_refreshUserData();  // Firestore から最新データ取得
+Webhook が受け取る `app_user_id` をそのまま `users/{uid}` のドキュメントIDとして
+使えるよう、ログイン時（`auth_provider.dart`）に `Purchases.logIn(uid)` を呼ぶ。
+
+### 5. Webhook の認証
+
+**実装:** Authorization ヘッダーの秘密文字列による検証
+```typescript
+const authHeader = req.get('Authorization');
+if (authHeader !== `Bearer ${expectedSecret}`) {
+  res.status(401).send('Unauthorized');
+  return;
+}
 ```
 
-### 5. 購入イベントログ
+### 6. 購入イベントログ
 
 **Cloud Functions:** `premiumUpdatedAt` タイムスタンプ記録
 ```typescript
-await db.collection('users').doc(uid).update({
-  isPremium: true,
+await admin.firestore().collection('users').doc(uid).update({
+  isPremium: grant,
   premiumUpdatedAt: admin.firestore.Timestamp.now(),  // ログ
-  premiumProduct: productId,  // 商品追跡
+  premiumProduct: grant ? event.product_id ?? null : null,  // 商品追跡
 });
 ```
 
 ## 設定手順
 
-### 1. Apple App Store Secret 設定
+### 1. RevenueCat Webhook Secret 設定
 
 ```bash
-firebase functions:config:set apple.app_secret="YOUR_SHARED_SECRET"
+firebase functions:secrets:set REVENUECAT_WEBHOOK_SECRET
 ```
 
-App Store Connect → Apps → In-App Purchases で共有シークレットを取得
+RevenueCat ダッシュボード → Project Settings → Integrations → Webhooks で
+同じ秘密文字列を Authorization header に設定する。
 
-### 2. Google Play Service Account 設定
-
-```bash
-firebase functions:config:set google.service_account="$(cat /path/to/service-account.json | jq -c .)"
-```
-
-[Google Play Console](https://play.google.com/console) → 設定 → API とアクセス → サービスアカウント から JSON ファイルを取得
-
-### 3. Firestore セキュリティルール 発行
+### 2. Firestore セキュリティルール 発行
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-### 4. Cloud Functions デプロイ
+### 3. Cloud Functions デプロイ
 
 ```bash
 cd functions
 npm install
-firebase deploy --only functions:verifyPurchaseReceipt
+firebase deploy --only functions:revenuecatWebhook,functions:onReviewCreate
 ```
 
 ## テスト
@@ -128,60 +136,42 @@ firebase deploy --only functions:verifyPurchaseReceipt
 ### ローカルテスト
 
 ```bash
-# Firebase Emulator で全体テスト
-firebase emulators:start
-
-# Firestore Emulator テスト
-firebase emulators:exec "npm test"
+cd functions
+npm run build
+node --test lib/*.test.js
 ```
 
 ### 検証テスト手順
 
-#### iOS（Sandbox テスト）
-1. TestFlight で Test User 作成
-2. Sandbox App Store の商品を購入
-3. App Store Connect でレシート検証
-
-#### Android（Google Play Console テスト）
-1. テストアカウント作成
-2. Google Play Console → 管理 → ライセンステスト
-3. テスト用APKで購入テスト
+RevenueCat ダッシュボードの Webhook 設定画面から「Send Test Event」を送信し、
+Cloud Functions のログでイベントを正しく受信・処理できるか確認する。
 
 ## セキュリティチェックリスト
 
 ### デプロイ前確認
 
-- [ ] Apple App Secret を環境変数に設定
-- [ ] Google Play Service Account を設定
+- [ ] RevenueCat Webhook Secret を Cloud Functions の環境変数に設定
+- [ ] RevenueCat ダッシュボードで Webhook URL・Authorization header を設定
 - [ ] Cloud Functions をデプロイ
 - [ ] Firestore セキュリティルールを発行
 - [ ] isPremium フィールドがクライアントから変更不可か確認
 
 ### 本番環境確認
 
-- [ ] レシート検証が正常に機能しているか
+- [ ] RevenueCat の購入イベントが Webhook で正常に届いているか
 - [ ] Firestore ログに `premiumUpdatedAt` が記録されているか
-- [ ] 検証失敗時にエラーが返却されているか
-- [ ] ユーザーアクセスが正常にフィルタリングされているか
+- [ ] Authorization 検証失敗時に401が返却されているか
+- [ ] RevenueCat の `app_user_id` が Firebase UID と一致しているか
 
 ## トラブルシューティング
 
-### Apple レシート検証失敗
-
-**原因:** Sandbox vs Production の混在
-
-```typescript
-// Sandbox テストの場合
-const isDev = true;
-verified = await verifyAppleReceipt(receipt, productId, isDev);
-```
-
-### Google レシート検証エラー
+### Webhook が届かない / isPremium が更新されない
 
 **確認事項:**
-- Service Account に `androidpublisher` 権限があるか
-- Package Name が正確か
-- Product ID（SKU）が完全一致しているか
+- RevenueCat ダッシュボードの Webhook URL が正しいデプロイ先を指しているか
+- Authorization header の秘密文字列が一致しているか
+- `linkPurchasesToUser` がログイン時に呼ばれ、`app_user_id` が Firebase UID と
+  一致しているか
 
 ### Firestore ルール エラー
 
@@ -189,7 +179,7 @@ verified = await verifyAppleReceipt(receipt, productId, isDev);
 FirebaseError: Missing or insufficient permissions
 ```
 
-→ `firebase.rules` がデプロイされているか確認
+→ `firestore.rules` がデプロイされているか確認
 
 ## 監視・監査
 
@@ -208,30 +198,17 @@ function(db, 'users', uid) {
 ### Cloud Functions ログ確認
 
 ```bash
-firebase functions:log --only verifyPurchaseReceipt
-```
-
-### 不正検出
-
-```firestore
-// 複数デバイスからの同時購入
-function checkFraud(userId) {
-  return (isPremium が true に変わった時刻) < (5分前)
-    && (複数デバイスからのアクティビティ)
-}
+firebase functions:log --only revenuecatWebhook
 ```
 
 ## 今後の改善
 
-- [ ] レシート失効管理（サブスクリプション キャンセル検出）
 - [ ] 複数デバイスでのライセンス共有検出
-- [ ] 不正な premium フラグ変更の自動リセット
 - [ ] 監査ログの詳細化
 - [ ] リアルタイム不正検出アラート
 
 ## 参考資料
 
-- [App Store Server Notifications](https://developer.apple.com/documentation/app-store-server-notifications)
-- [Google Play Billing Library](https://developer.android.com/google-play/billing)
+- [RevenueCat Webhooks](https://www.revenuecat.com/docs/integrations/webhooks)
 - [Firestore Security Rules](https://firebase.google.com/docs/firestore/security/start)
 - [Cloud Functions for Firebase](https://firebase.google.com/docs/functions)
