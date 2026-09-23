@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../config/theme/app_theme.dart';
 import '../../models/facility_model.dart';
 import '../../utils/constants.dart';
+import '../../utils/maps_launcher.dart';
 import '../../view_models/map_view_model.dart';
 import '../../views/widgets/custom_app_bar.dart';
 
@@ -325,6 +326,13 @@ class _FacilityBottomSheet extends StatelessWidget {
               Text('(${facility.reviewCount}件)',
                   style: Theme.of(context).textTheme.bodyMedium),
               const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.directions_rounded,
+                    color: Color(0xFF00B377)),
+                tooltip: '経路を見る',
+                onPressed: () => MapsLauncher.openDirections(
+                    facility.latitude, facility.longitude),
+              ),
               ElevatedButton(
                 onPressed: onTap,
                 style: ElevatedButton.styleFrom(
