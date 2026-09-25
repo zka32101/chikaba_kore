@@ -3,7 +3,7 @@
     "platforms": {
       "android": {
         "default": {
-          "projectId": "petit-works-apps-9029a",
+          "projectId": "chikaba-map",
           "appId": "1:216377882454:android:fab207363fb85ec5d108f7",
           "fileOutput": "android/app/google-services.json"
         }
@@ -11,7 +11,7 @@
     },
     "dart": {
       "lib/firebase_options.dart": {
-        "projectId": "petit-works-apps-9029a",
+        "projectId": "chikaba-map",
         "configurations": {
           "android": "1:216377882454:android:fab207363fb85ec5d108f7",
           "ios": "1:216377882454:ios:069fbfd52dc3b382d108f7"

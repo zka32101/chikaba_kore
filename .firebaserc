@@ -1,6 +1,6 @@
 {
   "projects": {
-    "default": "chikaba-kore"
+    "default": "chikaba-map"
   },
   "targets": {}
 }
