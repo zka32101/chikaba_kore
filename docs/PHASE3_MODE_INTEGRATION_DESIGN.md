@@ -125,7 +125,9 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
   chikaba_kore側`AuthService`に`ensureSignedIn()`を追加する形で橋渡しした
 - [x] **Phase 3b**: `MapCameraController`/`MapBaseOptions`/`comfortScoreColor`を`lib/views/widgets/map/`に実装し、
   既存の施設探索モード（`MapScreen`）をこれらの共通レイヤー経由に書き換え済み（`MAP_COMPONENT_INTEGRATION_DESIGN.md`の実装フェーズ）
-- **Phase 3c**: 地図タブへの`ModeSwitcher`実装、安全ルートモードの地図描画統合
+- [x] **Phase 3c**: 地図タブへの`ModeSwitcher`（`SegmentedButton`）実装、安全ルートモードの地図描画統合。
+  `safetyRouteProvider`で現在地周辺の安心ルートを検索し、`comfortScoreColor`で色分けした
+  `Polyline`として描画。目的地選択・投稿・コメント・お知らせ・本人確認等の周辺機能はサブフェーズ3dへ
 - **Phase 3d**: 周辺機能（投稿確認/コメント/塗って投稿/本人確認）の画面移植・ルート追加
 - **Phase 3e**: Firestoreスキーマ統合（`users`フィールド追加）・Security Rules統合
 - **Phase 3f**: project-039リポジトリの開発終了（アーカイブ）、chikaba_kore単一リポジトリでの運用開始

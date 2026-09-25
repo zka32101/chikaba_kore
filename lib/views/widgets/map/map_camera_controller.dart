@@ -16,14 +16,23 @@ class MapCameraController {
   Future<void> animateToPosition(LatLng position, {double zoom = 14.0}) async {
     final controller = _controller;
     if (controller == null) return;
-    await controller.animateCamera(CameraUpdate.newLatLngZoom(position, zoom));
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngZoom(position, zoom));
+    } catch (_) {
+      // モード切替等でGoogleMapウィジェットが再生成され、コントローラが
+      // 既に破棄された直後に呼ばれた場合は無視する（表示上の実害はない）。
+    }
   }
 
   /// 指定した範囲全体が収まるようカメラを移動する（ルート全体表示など）。
   Future<void> animateToBounds(LatLngBounds bounds, {double padding = 48.0}) async {
     final controller = _controller;
     if (controller == null) return;
-    await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, padding));
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, padding));
+    } catch (_) {
+      // 上記animateToPositionと同じ理由で無視する。
+    }
   }
 
   void dispose() {

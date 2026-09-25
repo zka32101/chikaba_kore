@@ -7,6 +7,7 @@ import 'config/router.dart';
 import 'config/theme/app_theme.dart';
 import 'models/app_notification.dart';
 import 'providers/billing_provider.dart';
+import 'providers/firebase_provider.dart';
 import 'purchases/purchases_bootstrap.dart';
 import 'services/cache_service.dart';
 import 'services/notification_service.dart';
@@ -19,9 +20,11 @@ void main() async {
   await CacheService.init();
 
   // firebase_options.dart が生成されるまでは条件付き初期化
+  var firebaseAvailable = false;
   try {
     await Firebase.initializeApp();
     await NotificationService().initialize();
+    firebaseAvailable = true;
   } catch (e) {
     appLogger.w('Firebase init skipped (configure firebase_options.dart): $e');
   }
@@ -33,6 +36,7 @@ void main() async {
   runApp(ProviderScope(
     overrides: [
       purchasesAvailableProvider.overrideWithValue(purchasesResult.available),
+      firebaseAvailableProvider.overrideWithValue(firebaseAvailable),
     ],
     child: const ChikabaKoreApp(),
   ));
