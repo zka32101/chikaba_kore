@@ -1,13 +1,19 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../config/theme/app_theme.dart';
 import '../../models/facility_model.dart';
+import '../../models/road_segment.dart';
+import '../../models/route_result.dart';
+import '../../providers/safety_route_provider.dart';
+import '../../providers/ui_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/maps_launcher.dart';
 import '../../view_models/map_view_model.dart';
 import '../../views/widgets/custom_app_bar.dart';
+import '../../views/widgets/map/comfort_score_color.dart';
 import '../../views/widgets/map/map_base_options.dart';
 import '../../views/widgets/map/map_camera_controller.dart';
 
@@ -22,8 +28,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final _cameraController = MapCameraController();
   final _searchController = TextEditingController();
 
-  // 検索バーの高さ分だけパディングした、施設探索モードの基本オプション。
-  static final _mapOptions = const MapBaseOptions().copyWith(
+  // モードスイッチャー＋検索バーの高さ分だけパディングした、施設探索モードの基本オプション。
+  static final _facilityMapOptions = const MapBaseOptions().copyWith(
+    padding: const EdgeInsets.only(top: 104),
+  );
+
+  // モードスイッチャーの高さ分だけパディングした、安全ルートモードの基本オプション。
+  static final _safetyRouteMapOptions = const MapBaseOptions().copyWith(
     padding: const EdgeInsets.only(top: 56),
   );
 
@@ -36,78 +47,314 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(mapViewModelProvider);
-    final vm = ref.read(mapViewModelProvider.notifier);
-    final selected = vm.selectedFacility;
+    final mode = ref.watch(mapModeProvider);
 
-    // 現在地が取得されたらカメラをアニメーション
+    // 施設探索モード: 現在地が取得されたらカメラをアニメーション
     ref.listen<MapState>(mapViewModelProvider, (prev, next) {
+      if (ref.read(mapModeProvider) != MapMode.facility) return;
       if (prev?.cameraPosition != next.cameraPosition) {
         _cameraController.animateToPosition(next.cameraPosition, zoom: AppConstants.defaultZoom);
       }
+    });
+
+    // 安全ルートモード: ルートが取得されたらルート全体が収まるようカメラをアニメーション
+    ref.listen<AsyncValue<RouteResult?>>(safetyRouteProvider, (prev, next) {
+      if (ref.read(mapModeProvider) != MapMode.safetyRoute) return;
+      final route = next.valueOrNull;
+      if (route == null || route.nodes.isEmpty) return;
+      _cameraController.animateToBounds(_boundsForNodes(route.nodes));
     });
 
     return Scaffold(
       appBar: const CustomAppBar(title: '地図'),
       body: Stack(
         children: [
-          // ── GoogleMap ──
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: state.cameraPosition,
-              zoom: AppConstants.defaultZoom,
-            ),
-            onMapCreated: _cameraController.attach,
-            markers: state.markers,
-            mapType: _mapOptions.mapType,
-            myLocationEnabled: _mapOptions.myLocationEnabled,
-            myLocationButtonEnabled: _mapOptions.myLocationButtonEnabled,
-            zoomControlsEnabled: _mapOptions.zoomControlsEnabled,
-            zoomGesturesEnabled: _mapOptions.zoomGesturesEnabled,
-            scrollGesturesEnabled: _mapOptions.scrollGesturesEnabled,
-            mapToolbarEnabled: _mapOptions.mapToolbarEnabled,
-            padding: _mapOptions.padding,
-          ),
+          if (mode == MapMode.facility) _buildFacilityMode(context) else _buildSafetyRouteMode(context),
 
-          // ── 検索バー（地図の上にフロート）──
+          // ── モードスイッチャー（常時最上部にフロート）──
           Positioned(
             top: 8,
             left: 12,
             right: 12,
-            child: _MapSearchBar(
-              controller: _searchController,
-              onChanged: vm.setSearchQuery,
-              onClear: () {
-                _searchController.clear();
-                vm.setSearchQuery('');
-              },
-              resultCount: state.searchQuery.isEmpty
-                  ? null
-                  : state.filteredFacilities.length,
+            child: _ModeSwitcher(
+              mode: mode,
+              onChanged: (m) => ref.read(mapModeProvider.notifier).state = m,
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          if (state.isLoading)
-            const Center(child: CircularProgressIndicator()),
+  Widget _buildFacilityMode(BuildContext context) {
+    final state = ref.watch(mapViewModelProvider);
+    final vm = ref.read(mapViewModelProvider.notifier);
+    final selected = vm.selectedFacility;
+    final options = _facilityMapOptions;
 
+    return Stack(
+      children: [
+        // ── GoogleMap ──
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: state.cameraPosition,
+            zoom: AppConstants.defaultZoom,
+          ),
+          onMapCreated: _cameraController.attach,
+          markers: state.markers,
+          mapType: options.mapType,
+          myLocationEnabled: options.myLocationEnabled,
+          myLocationButtonEnabled: options.myLocationButtonEnabled,
+          zoomControlsEnabled: options.zoomControlsEnabled,
+          zoomGesturesEnabled: options.zoomGesturesEnabled,
+          scrollGesturesEnabled: options.scrollGesturesEnabled,
+          mapToolbarEnabled: options.mapToolbarEnabled,
+          padding: options.padding,
+        ),
+
+        // ── 検索バー（モードスイッチャーの下にフロート）──
+        Positioned(
+          top: 56,
+          left: 12,
+          right: 12,
+          child: _MapSearchBar(
+            controller: _searchController,
+            onChanged: vm.setSearchQuery,
+            onClear: () {
+              _searchController.clear();
+              vm.setSearchQuery('');
+            },
+            resultCount: state.searchQuery.isEmpty
+                ? null
+                : state.filteredFacilities.length,
+          ),
+        ),
+
+        if (state.isLoading)
+          const Center(child: CircularProgressIndicator()),
+
+        Positioned(
+          bottom: selected != null ? 180 : 16,
+          left: 0,
+          right: 0,
+          child: _CategoryFilterBar(onSelect: vm.filterByCategory),
+        ),
+
+        if (selected != null)
           Positioned(
-            bottom: selected != null ? 180 : 16,
+            bottom: 0,
             left: 0,
             right: 0,
-            child: _CategoryFilterBar(onSelect: vm.filterByCategory),
-          ),
-
-          if (selected != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _FacilityBottomSheet(
-                facility: selected,
-                onClose: vm.clearSelection,
-                onTap: () => context.push('/facility/${selected.id}'),
-              ),
+            child: _FacilityBottomSheet(
+              facility: selected,
+              onClose: vm.clearSelection,
+              onTap: () => context.push('/facility/${selected.id}'),
             ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSafetyRouteMode(BuildContext context) {
+    final routeAsync = ref.watch(safetyRouteProvider);
+    final route = routeAsync.valueOrNull;
+    final options = _safetyRouteMapOptions;
+
+    return Stack(
+      children: [
+        // ── GoogleMap ──
+        GoogleMap(
+          initialCameraPosition: const CameraPosition(
+            target: LatLng(AppConstants.defaultLatitude, AppConstants.defaultLongitude),
+            zoom: AppConstants.defaultZoom,
+          ),
+          onMapCreated: _cameraController.attach,
+          polylines: route != null ? _polylinesForRoute(route) : const {},
+          mapType: options.mapType,
+          myLocationEnabled: options.myLocationEnabled,
+          myLocationButtonEnabled: options.myLocationButtonEnabled,
+          zoomControlsEnabled: options.zoomControlsEnabled,
+          zoomGesturesEnabled: options.zoomGesturesEnabled,
+          scrollGesturesEnabled: options.scrollGesturesEnabled,
+          mapToolbarEnabled: options.mapToolbarEnabled,
+          padding: options.padding,
+        ),
+
+        if (routeAsync.isLoading)
+          const Center(child: CircularProgressIndicator()),
+
+        if (routeAsync.hasError)
+          Center(
+            child: _SafetyRouteErrorCard(
+              onRetry: () => ref.invalidate(safetyRouteProvider),
+            ),
+          )
+        else if (route != null)
+          Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: _SafetyRouteInfoCard(route: route),
+          )
+        else if (!routeAsync.isLoading)
+          const Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: _SafetyRouteEmptyCard(),
+          ),
+      ],
+    );
+  }
+
+  Set<Polyline> _polylinesForRoute(RouteResult route) {
+    return route.segments.map((segment) {
+      return Polyline(
+        polylineId: PolylineId(segment.id),
+        points: [
+          LatLng(segment.from.lat, segment.from.lon),
+          LatLng(segment.to.lat, segment.to.lon),
+        ],
+        color: comfortScoreColor(segment.comfortScore),
+        width: 5,
+      );
+    }).toSet();
+  }
+
+  LatLngBounds _boundsForNodes(List<RoadNode> nodes) {
+    var minLat = nodes.first.lat;
+    var maxLat = nodes.first.lat;
+    var minLon = nodes.first.lon;
+    var maxLon = nodes.first.lon;
+    for (final node in nodes) {
+      minLat = math.min(minLat, node.lat);
+      maxLat = math.max(maxLat, node.lat);
+      minLon = math.min(minLon, node.lon);
+      maxLon = math.max(maxLon, node.lon);
+    }
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLon),
+      northeast: LatLng(maxLat, maxLon),
+    );
+  }
+}
+
+class _ModeSwitcher extends StatelessWidget {
+  final MapMode mode;
+  final ValueChanged<MapMode> onChanged;
+
+  const _ModeSwitcher({required this.mode, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      borderRadius: BorderRadius.circular(22),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: SegmentedButton<MapMode>(
+          segments: const [
+            ButtonSegment(
+              value: MapMode.facility,
+              label: Text('お店を探す'),
+              icon: Icon(Icons.storefront_outlined, size: 16),
+            ),
+            ButtonSegment(
+              value: MapMode.safetyRoute,
+              label: Text('安全ルートを探す'),
+              icon: Icon(Icons.shield_outlined, size: 16),
+            ),
+          ],
+          selected: {mode},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) => onChanged(selection.first),
+        ),
+      ),
+    );
+  }
+}
+
+class _SafetyRouteInfoCard extends StatelessWidget {
+  final RouteResult route;
+
+  const _SafetyRouteInfoCard({required this.route});
+
+  @override
+  Widget build(BuildContext context) {
+    final distanceLabel = route.distanceM >= 1000
+        ? '${(route.distanceM / 1000).toStringAsFixed(1)}km'
+        : '${route.distanceM.toStringAsFixed(0)}m';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.route_outlined, color: comfortScoreColor(route.averageComfortScore)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('近くの安心ルート', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  '距離 $distanceLabel・安心スコア ${(route.averageComfortScore * 100).round()}%',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                if (route.isFromCache) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'オフラインキャッシュを表示中（実際の状況と異なる場合があります）',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SafetyRouteEmptyCard extends StatelessWidget {
+  const _SafetyRouteEmptyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: const Text('近くに安心ルートが見つかりませんでした'),
+    );
+  }
+}
+
+class _SafetyRouteErrorCard extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _SafetyRouteErrorCard({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('安心ルートの検索に失敗しました'),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRetry, child: const Text('再試行')),
         ],
       ),
     );
