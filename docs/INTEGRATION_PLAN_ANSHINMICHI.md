@@ -22,7 +22,7 @@
 | 項目 | 近場まっぷ (chikaba_kore) | あんしんみち (project-039) |
 |---|---|---|
 | コア価値 | 施設発見・クチコミ（グルメ・観光） | 安全な経路探索（影・明るさ・雨よけ回避） |
-| Firebaseプロジェクト | `petit-works-apps-9029a` | 別プロジェクト（未確認・要調査） |
+| Firebaseプロジェクト | `chikaba-map`（旧`.firebaserc`は`chikaba-kore`、旧`firebase.json`は`petit-works-apps-9029a`を指しており設定不一致があったため統一済み） | ✅ `chikaba-map` に統一する方針で`.firebaserc`を設定済み。project-039側はFirebase Console上でのプロジェクト自体が未作成のため、Android/iOSアプリ登録（`google-services.json`/`GoogleService-Info.plist`発行）は別途ユーザー側の作業が必要 |
 | 認証方式 | Google Sign-In のみ | 匿名サインイン + 電話番号SMS認証（コメント投稿に必須） |
 | 課金基盤 | RevenueCat (`purchases_flutter`)（統一済み） | RevenueCat (`purchases_flutter`) |
 | 通知 | FCM + flutter_local_notifications | FCM + トピック購読 + フォアグラウンド専用バナーキュー |
@@ -77,8 +77,8 @@ project-039 は以下を実装済み：
 
 ### Phase 2: 基盤の統一
 - [x] 課金基盤を RevenueCat に統一（chikaba_kore 側を移行）
-- Firebase プロジェクト統合方針を確定・実施
-- 認証方式の使い分け設計を確定
+- [x] Firebase プロジェクト統合方針を確定（`chikaba-map` に統一）。両リポジトリの `.firebaserc` を設定済み。project-039 側のAndroid/iOSアプリ登録（Firebase Console操作）は残作業
+- [x] 認証方式の使い分け設計を確定
 
 ### Phase 3: 1アプリ内でのモード統合
 - ブランドを統一（名称は要検討）
@@ -93,7 +93,7 @@ project-039 は以下を実装済み：
 1. **ブランド名** — 「近場まっぷ」で統一するか、新ブランドを立てるか
 2. **収益化の統一方式** — RevenueCat 移行の実施時期・移行手順
 3. **本人確認の適用範囲** — ✅ 方針決定済み。`docs/AUTH_STRATEGY_DESIGN.md` 参照。Google Sign-Inをベースに、コメント機能等の実名性が必要な操作にのみ電話番号認証を追加リンクする方式。実装はコメント機能統合のタイミングまで保留
-4. **project-039 の Firebase プロジェクト詳細** — 未調査。統合方針を決める前に把握が必要
+4. **project-039 の Firebase プロジェクト詳細** — ✅ 調査済み。project-039 は Firebase Console 上でのプロジェクト自体が未作成（CI の `FIREBASE_PROJECT_ID` も未設定）だったため、`chikaba-map`（chikaba_kore が実際に使用しているプロジェクト）へ統合する方針で決定。両リポジトリの `.firebaserc` を `chikaba-map` に設定済み。残作業: Firebase Console で project-039 用の Android/iOS アプリを `chikaba-map` プロジェクトに登録し、`google-services.json`/`GoogleService-Info.plist` を発行（ユーザー側の作業）
 5. **既存ユーザーへの影響** — 両アプリともプレローンチのため現状は影響なし。今後ローンチ時期をどう調整するか
 
 ## 次のアクション候補
