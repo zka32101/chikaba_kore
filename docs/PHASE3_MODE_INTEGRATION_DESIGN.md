@@ -123,7 +123,8 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
   `app_version.dart`（強制アップデート機能、対象外）も除外。
   project-039の`AuthService`（匿名サインイン前提）に依存していたFirebase実装層は、
   chikaba_kore側`AuthService`に`ensureSignedIn()`を追加する形で橋渡しした
-- **Phase 3b**: `MapCameraController`/`MapBaseOptions`の実装（`MAP_COMPONENT_INTEGRATION_DESIGN.md`の実装フェーズ）
+- [x] **Phase 3b**: `MapCameraController`/`MapBaseOptions`/`comfortScoreColor`を`lib/views/widgets/map/`に実装し、
+  既存の施設探索モード（`MapScreen`）をこれらの共通レイヤー経由に書き換え済み（`MAP_COMPONENT_INTEGRATION_DESIGN.md`の実装フェーズ）
 - **Phase 3c**: 地図タブへの`ModeSwitcher`実装、安全ルートモードの地図描画統合
 - **Phase 3d**: 周辺機能（投稿確認/コメント/塗って投稿/本人確認）の画面移植・ルート追加
 - **Phase 3e**: Firestoreスキーマ統合（`users`フィールド追加）・Security Rules統合

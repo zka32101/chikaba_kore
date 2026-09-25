@@ -8,6 +8,8 @@ import '../../utils/constants.dart';
 import '../../utils/maps_launcher.dart';
 import '../../view_models/map_view_model.dart';
 import '../../views/widgets/custom_app_bar.dart';
+import '../../views/widgets/map/map_base_options.dart';
+import '../../views/widgets/map/map_camera_controller.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
@@ -17,12 +19,17 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
-  GoogleMapController? _mapController;
+  final _cameraController = MapCameraController();
   final _searchController = TextEditingController();
+
+  // 検索バーの高さ分だけパディングした、施設探索モードの基本オプション。
+  static final _mapOptions = const MapBaseOptions().copyWith(
+    padding: const EdgeInsets.only(top: 56),
+  );
 
   @override
   void dispose() {
-    _mapController?.dispose();
+    _cameraController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -35,10 +42,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     // 現在地が取得されたらカメラをアニメーション
     ref.listen<MapState>(mapViewModelProvider, (prev, next) {
-      if (prev?.cameraPosition != next.cameraPosition && _mapController != null) {
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(next.cameraPosition, AppConstants.defaultZoom),
-        );
+      if (prev?.cameraPosition != next.cameraPosition) {
+        _cameraController.animateToPosition(next.cameraPosition, zoom: AppConstants.defaultZoom);
       }
     });
 
@@ -52,13 +57,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               target: state.cameraPosition,
               zoom: AppConstants.defaultZoom,
             ),
-            onMapCreated: (controller) => _mapController = controller,
+            onMapCreated: _cameraController.attach,
             markers: state.markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            mapType: MapType.normal,
-            // 検索バーの高さ分だけパディング
-            padding: const EdgeInsets.only(top: 56),
+            mapType: _mapOptions.mapType,
+            myLocationEnabled: _mapOptions.myLocationEnabled,
+            myLocationButtonEnabled: _mapOptions.myLocationButtonEnabled,
+            zoomControlsEnabled: _mapOptions.zoomControlsEnabled,
+            zoomGesturesEnabled: _mapOptions.zoomGesturesEnabled,
+            scrollGesturesEnabled: _mapOptions.scrollGesturesEnabled,
+            mapToolbarEnabled: _mapOptions.mapToolbarEnabled,
+            padding: _mapOptions.padding,
           ),
 
           // ── 検索バー（地図の上にフロート）──
