@@ -11,6 +11,20 @@ class AuthService {
   User? get currentFirebaseUser => _auth.currentUser;
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  /// あんしんみち由来のサービス（経路探索・投稿等）が要求するインターフェース。
+  /// project-039では「未サインインなら匿名サインインする」役割だったが、
+  /// 近場まっぷでは匿名認証を導入しない方針（docs/AUTH_STRATEGY_DESIGN.md）のため、
+  /// 既にGoogle Sign-In済みのuidを返すだけの薄い実装に読み替える。
+  Future<String> ensureSignedIn() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('サインインしていません');
+    }
+    return uid;
+  }
+
+  String? get currentUserId => _auth.currentUser?.uid;
+
   Future<void> signOut() async {
     await _auth.signOut();
   }

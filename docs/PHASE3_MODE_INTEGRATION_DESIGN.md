@@ -115,7 +115,14 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
 
 ## 段階的移行ステップ（Phase 3のサブフェーズ）
 
-- **Phase 3a**: `lib/models/`, `lib/services/`, `lib/firebase/`のコード移植（依存の少ない順）
+- [x] **Phase 3a**: `lib/models/`, `lib/services/`, `lib/firebase/`のコード移植（依存の少ない順）。
+  匿名認証前提の`auth_service.dart`本体・`location_service.dart`・`subscription_service.dart`は
+  既にchikaba_kore側で統一済みのため移植対象から除外。`map_projection.dart`（模式図描画）・
+  `push_notification_service.dart`（既存NotificationServiceで代替済み）・
+  `onboarding_storage.dart`/`notification_preference_storage.dart`（既存Hiveベース実装で代替）・
+  `app_version.dart`（強制アップデート機能、対象外）も除外。
+  project-039の`AuthService`（匿名サインイン前提）に依存していたFirebase実装層は、
+  chikaba_kore側`AuthService`に`ensureSignedIn()`を追加する形で橋渡しした
 - **Phase 3b**: `MapCameraController`/`MapBaseOptions`の実装（`MAP_COMPONENT_INTEGRATION_DESIGN.md`の実装フェーズ）
 - **Phase 3c**: 地図タブへの`ModeSwitcher`実装、安全ルートモードの地図描画統合
 - **Phase 3d**: 周辺機能（投稿確認/コメント/塗って投稿/本人確認）の画面移植・ルート追加
