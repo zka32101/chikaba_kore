@@ -101,7 +101,8 @@ service cloud.firestore {
       return data.uid != null
         && data.nickname != null
         && (data.userType == 'local' || data.userType == 'visitor')
-        && (!('isPremium' in data) || data.isPremium == false);
+        && (!('isPremium' in data) || data.isPremium == false)
+        && (!('isVerified' in data) || data.isVerified == false);
     }
 
     // ユーザー更新時の検証（isPremium・isVerified は Cloud Functions のみ更新可能）

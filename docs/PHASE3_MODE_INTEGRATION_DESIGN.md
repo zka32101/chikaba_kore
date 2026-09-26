@@ -136,14 +136,35 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
   `/safety-route/verification`はマイページの「本人確認」セクションから遷移。
   `firestore.rules`/`firestore.indexes.json`に`shadeSpots`/`brightnessSpots`/`spotComments`用の
   ルール・インデックスを追加。お知らせ機能は方針通り先送り
-- **Phase 3e**: Firestoreスキーマ統合（`users`フィールド追加）・Security Rules統合
-- **Phase 3f**: project-039リポジトリの開発終了（アーカイブ）、chikaba_kore単一リポジトリでの運用開始
+- [x] **Phase 3e**: Firestoreスキーマ統合（`users`フィールド追加）・Security Rules統合。
+  Phase 3dの`firestore.rules`更新で大部分は完了済み。整理の過程で
+  `isValidUserCreate()`が`isPremium`同様に`isVerified`のガードを持っていなかった
+  抜け穴（クライアントが作成時に`isVerified: true`を自称できてしまう）を発見・修正した。
+  Cloud Functions（`syncVerificationStatus`/`handleSpotCreated`/`onSpotCommentCreated`/`voteSpot`等）
+  自体の移植は本サブフェーズのスコープ外（クライアント側は常に`status/moderationStatus: 'pending'`で
+  作成する設計のため、Cloud Functions未移植の間は投稿が承認待ちのまま残るだけで安全に停止する。
+  実際に「即時反映」や「本人確認」を機能させるには別途Cloud Functions移植が必要。次のアクション参照）
+- **Phase 3f**: project-039リポジトリの開発終了（アーカイブ）、chikaba_kore単一リポジトリでの運用開始。
+  以下の順で実施する想定:
+  1. Cloud Functions移植（Phase 3eで先送りした分）を完了し、実機でひととおり動作確認する
+  2. project-039のREADMEに「chikaba_kore（近場まっぷ）に統合済み」と明記し、GitHub Actions（CI/CD）を無効化する
+  3. リポジトリをアーカイブ（読み取り専用化）する。実施タイミングはユーザー判断（未決定の論点1）
 
 各サブフェーズは独立してPR化・マージ可能な粒度を意図している。
 
+## 次のアクション（Phase 3f着手前に必要）
+
+- [ ] **Cloud Functions移植** — project-039の`functions/`から以下をchikaba_koreの`functions/`へ移植する必要がある。
+  未移植の間は「塗って投稿」等の投稿が常に承認待ち（`pending`）のまま残り、実際には反映されない
+  （安全側に停止するだけで、クラッシュ等の実害はない）:
+  - `syncVerificationStatus`（電話番号認証確定→`users/{uid}.isVerified`・Custom Claim更新）
+  - `handleSpotCreated`相当（`shadeSpots`/`brightnessSpots`の自動承認/承認待ち判定）
+  - `onSpotCommentCreated`相当（NGワードフィルタ判定）
+  - `voteSpot`（確認投票／通報の集計、自演・二重投票防止）
+
 ## 未決定の論点
 
-1. **project-039リポジトリの扱い** — Phase 3f完了後にアーカイブするか、しばらく並行して残すか
+1. **project-039リポジトリの扱い** — Phase 3f完了後にアーカイブするか、しばらく並行して残すか（Cloud Functions移植・実機確認が完了するまでは判断不要）
 2. **「安全ルート」モードのブランディング** — chikaba_map内での名称・アイコン・配色（あんしんみちのテーマカラーを引き継ぐか、近場まっぷのテーマに合わせるか）
-3. **お知らせ機能の扱い** — 先送りか、Phase 3内で簡易統合するか
-4. **スポット投稿系へのモデレーション基盤展開の時期** — Phase 3内で行うか、Phase 4に回すか
+3. **お知らせ機能の扱い** — ✅ 方針決定済み。Phase 3では先送り、Phase 4候補として据え置き
+4. **スポット投稿系へのモデレーション基盤展開の時期** — ✅ 方針決定済み。Phase 3内では対応せず、Phase 4に回す
