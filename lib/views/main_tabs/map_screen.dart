@@ -66,7 +66,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
 
     return Scaffold(
-      appBar: const CustomAppBar(title: '地図'),
+      appBar: CustomAppBar(
+        title: '地図',
+        actions: mode == MapMode.safetyRoute
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.fact_check_outlined),
+                  tooltip: '投稿を確認',
+                  onPressed: () => context.push('/safety-route/spots'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.forum_outlined),
+                  tooltip: 'みんなの声',
+                  onPressed: () => context.push('/safety-route/comments'),
+                ),
+              ]
+            : null,
+      ),
+      floatingActionButton: mode == MapMode.safetyRoute
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/safety-route/submit'),
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('塗って投稿'),
+            )
+          : null,
       body: Stack(
         children: [
           if (mode == MapMode.facility) _buildFacilityMode(context) else _buildSafetyRouteMode(context),

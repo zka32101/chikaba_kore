@@ -7,6 +7,7 @@ import '../../config/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_preferences_provider.dart';
 import '../../providers/favorite_provider.dart';
+import '../../providers/verification_provider.dart';
 import '../../utils/auth_error.dart';
 import '../../utils/constants.dart';
 import '../widgets/custom_app_bar.dart';
@@ -196,6 +197,37 @@ class SettingsScreen extends ConsumerWidget {
                     .read(notificationPreferencesProvider.notifier)
                     .setEnabled(v),
               ),
+            ],
+          ),
+          _SettingsSection(
+            title: '本人確認',
+            items: [
+              ref.watch(verificationProfileProvider).when(
+                    data: (profile) => _SettingsItem(
+                      icon: profile.isVerified ? Icons.verified_user : Icons.verified_user_outlined,
+                      label: profile.isVerified ? '本人確認済み' : '本人確認する',
+                      trailing: profile.isVerified
+                          ? const Icon(Icons.check_circle, color: AppColors.primary)
+                          : null,
+                      onTap: profile.isVerified
+                          ? null
+                          : () => context.push('/safety-route/verification'),
+                    ),
+                    loading: () => const _SettingsItem(
+                      icon: Icons.verified_user_outlined,
+                      label: '本人確認',
+                      trailing: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                    error: (_, _) => _SettingsItem(
+                      icon: Icons.verified_user_outlined,
+                      label: '本人確認する',
+                      onTap: () => context.push('/safety-route/verification'),
+                    ),
+                  ),
             ],
           ),
           if (isAdmin)
