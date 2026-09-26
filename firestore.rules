@@ -54,6 +54,30 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // 道路区間（安全ルート機能の集計先）。誰でも閲覧可。baseShadowScore（バッチ）・
+    // aggregated*Score（モデレーション承認時）ともにCloud Functionsのみが書き込む。
+    match /roadSegments/{segmentId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // モデレーション設定（地域別の反映モード等）。運用者のみが管理コンソール等で更新する想定。
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // レート制限カウンタ。Cloud Functions（Admin SDK、本ルールの制約を受けない）のみが読み書きする。
+    // クライアントから直接読めてしまうと、他ユーザーの呼び出し状況が推測できてしまうため拒否する。
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
+    // 投稿への確認投票／通報の記録。voteSpot（Cloud Functions）のみが読み書きする。
+    match /spotVotes/{voteId} {
+      allow read, write: if false;
+    }
+
     // 施設情報（誰でも読み取り可能、書き込みは管理者のみ）
     match /facilities/{facilityId} {
       allow read: if true;

@@ -154,13 +154,26 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
 
 ## 次のアクション（Phase 3f着手前に必要）
 
-- [ ] **Cloud Functions移植** — project-039の`functions/`から以下をchikaba_koreの`functions/`へ移植する必要がある。
-  未移植の間は「塗って投稿」等の投稿が常に承認待ち（`pending`）のまま残り、実際には反映されない
-  （安全側に停止するだけで、クラッシュ等の実害はない）:
-  - `syncVerificationStatus`（電話番号認証確定→`users/{uid}.isVerified`・Custom Claim更新）
-  - `handleSpotCreated`相当（`shadeSpots`/`brightnessSpots`の自動承認/承認待ち判定）
-  - `onSpotCommentCreated`相当（NGワードフィルタ判定）
-  - `voteSpot`（確認投票／通報の集計、自演・二重投票防止）
+- [x] **Cloud Functions移植（モデレーション・投票・本人確認）** — project-039の`functions/`
+  （ESM JavaScript）から、chikaba_kore既存のTypeScript(`firebase-functions/v1`)スタイルへ
+  移植した:
+  - `syncVerificationStatus.ts`（電話番号認証確定→`users/{uid}.isVerified`・Custom Claim更新）
+  - `onSpotCreate.ts`（`onShadeSpotCreated`/`onBrightnessSpotCreated`。自動承認/承認待ち判定）
+  - `onSpotApprove.ts`（`onShadeSpotApproved`/`onBrightnessSpotApproved`。人力承認時の集計反映）
+  - `onSpotCommentCreate.ts`（NGワードフィルタ判定）
+  - `voteSpot.ts`（確認投票／通報の集計、自演・二重投票防止）
+  - 上記が依存する純関数群（`spotModeration.ts`/`spotRateLimiting.ts`/`spotAggregation.ts`/
+    `spotVoting.ts`）とユニットテストも移植・追加し、`npm run build`/`npm test`で確認済み
+  - `firestore.rules`に`roadSegments`/`config`/`rateLimits`/`spotVotes`用のルールを追加
+  （project-039にも存在していたが、Phase 3dのルール移植では見落としていた）
+- [ ] **Cloud Functions移植（経路探索エンジン、スコープ外）** — `searchRoute`（Callable、
+  オンデマンド経路探索）・`shadowCalcBatch`（影スコアバッチ）・
+  `syncModerationConfigFromRemoteConfig`（Remote Config同期）は、依存する経路探索エンジン
+  一式（`buildGraph`/`shadowScore`/`routeSearch`/`firestoreRoadNetwork`/`spatialIndex`等、
+  project-039の`functions/src/`に7ファイル）の移植量が大きいため今回は見送った。
+  クライアント側は`firebaseAvailableProvider`が`false`の間`LocalRouteSearchService`
+  （オンデバイス版、アセット同梱データを使用）にフォールバックするため、実害なく後回しにできる。
+  Firebase接続後に安全ルート検索をサーバーサイドで行いたくなった時点で着手する
 
 ## 未決定の論点
 
