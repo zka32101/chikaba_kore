@@ -14,6 +14,10 @@ import '../views/write_review_screen.dart';
 import '../views/profile_edit_screen.dart';
 import '../views/screens/premium_screen.dart';
 import '../views/screens/pending_reviews_screen.dart';
+import '../views/safety_route/paint_submission_screen.dart';
+import '../views/safety_route/phone_verification_screen.dart';
+import '../views/safety_route/spot_comments_screen.dart';
+import '../views/safety_route/spots_list_screen.dart';
 
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -46,6 +50,11 @@ final appRouter = GoRouter(
         facilityName: state.uri.queryParameters['name'] ?? '',
       ),
     ),
+    // 安全ルートモード（あんしんみち由来）の周辺機能
+    GoRoute(path: '/safety-route/spots', builder: (_, _) => const SpotsListScreen()),
+    GoRoute(path: '/safety-route/comments', builder: (_, _) => const SpotCommentsScreen()),
+    GoRoute(path: '/safety-route/submit', builder: (_, _) => const PaintSubmissionScreen()),
+    GoRoute(path: '/safety-route/verification', builder: (_, _) => const PhoneVerificationScreen()),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) => _MainShell(child: child),

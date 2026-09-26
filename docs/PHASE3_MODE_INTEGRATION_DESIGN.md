@@ -128,7 +128,14 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
 - [x] **Phase 3c**: 地図タブへの`ModeSwitcher`（`SegmentedButton`）実装、安全ルートモードの地図描画統合。
   `safetyRouteProvider`で現在地周辺の安心ルートを検索し、`comfortScoreColor`で色分けした
   `Polyline`として描画。目的地選択・投稿・コメント・お知らせ・本人確認等の周辺機能はサブフェーズ3dへ
-- **Phase 3d**: 周辺機能（投稿確認/コメント/塗って投稿/本人確認）の画面移植・ルート追加
+- [x] **Phase 3d**: 周辺機能（投稿確認/コメント/塗って投稿/本人確認）の画面移植・ルート追加。
+  「塗って投稿」はproject-039の模式図キャンバス（`MapProjection`）方式ではなく、
+  実際のGoogleMap上でなぞる方式に再設計（ユーザー確認済み、`docs/MAP_COMPONENT_INTEGRATION_DESIGN.md`の
+  「実地図のみ」方針を維持）。`/safety-route/spots`・`/safety-route/comments`は地図タブの
+  安全ルートモードのAppBarアクションから、`/safety-route/submit`はFABから、
+  `/safety-route/verification`はマイページの「本人確認」セクションから遷移。
+  `firestore.rules`/`firestore.indexes.json`に`shadeSpots`/`brightnessSpots`/`spotComments`用の
+  ルール・インデックスを追加。お知らせ機能は方針通り先送り
 - **Phase 3e**: Firestoreスキーマ統合（`users`フィールド追加）・Security Rules統合
 - **Phase 3f**: project-039リポジトリの開発終了（アーカイブ）、chikaba_kore単一リポジトリでの運用開始
 

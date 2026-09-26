@@ -21,6 +21,39 @@ service cloud.firestore {
       }
     }
 
+    // 安全ルート機能（あんしんみち由来）の投稿。誰でも閲覧可（地図表示に必要）。
+    // status/moderationStatusは作成時は常に'pending'固定を要求し、
+    // 'approved'への遷移はCloud Functions（Admin SDK、本ルールの制約を受けない）のみが行う。
+    match /shadeSpots/{spotId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.submitterId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.type in ['tree', 'arcade', 'rain_shelter'];
+      allow update, delete: if false;
+    }
+
+    match /brightnessSpots/{spotId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.submitterId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.brightnessLevel in ['dark', 'normal', 'bright']
+        && request.resource.data.reasonType in ['dark', 'low_foot_traffic'];
+      allow update, delete: if false;
+    }
+
+    // 投稿へのコメント。本人確認済みユーザーのみ作成可（docs/AUTH_STRATEGY_DESIGN.md参照）。
+    // moderationStatusはNGワード判定前提のため作成時は常に'pending'固定。
+    match /spotComments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.submitterId == request.auth.uid
+        && request.resource.data.moderationStatus == 'pending'
+        && isVerifiedUser();
+      allow update, delete: if false;
+    }
+
     // 施設情報（誰でも読み取り可能、書き込みは管理者のみ）
     match /facilities/{facilityId} {
       allow read: if true;
@@ -71,19 +104,30 @@ service cloud.firestore {
         && (!('isPremium' in data) || data.isPremium == false);
     }
 
-    // ユーザー更新時の検証（isPremium は Cloud Functions のみ更新可能）
+    // ユーザー更新時の検証（isPremium・isVerified は Cloud Functions のみ更新可能）
     function isValidUserUpdate(oldData, newData) {
       // isPremium フィールドの直接変更を禁止
       let isPremiumUnchanged = (('isPremium' in oldData) && (newData.isPremium == oldData.isPremium))
         || (!('isPremium' in oldData) && !('isPremium' in newData));
 
+      // isVerified フィールドの直接変更を禁止（本人確認はsyncVerificationStatus経由のみ）
+      let isVerifiedUnchanged = (('isVerified' in oldData) && (newData.isVerified == oldData.isVerified))
+        || (!('isVerified' in oldData) && !('isVerified' in newData));
+
       return isPremiumUnchanged
+        && isVerifiedUnchanged
         && isValidUserCreate(newData);
     }
 
     // 管理者チェック
     function isAdmin() {
       return request.auth.token.admin == true;
+    }
+
+    // 本人確認済みチェック（docs/AUTH_STRATEGY_DESIGN.md参照）。
+    // Custom Claimのみで判定し、Firestoreのget()を都度発生させない。
+    function isVerifiedUser() {
+      return request.auth != null && request.auth.token.isVerified == true;
     }
   }
 }
