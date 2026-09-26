@@ -166,14 +166,27 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
     `spotVoting.ts`）とユニットテストも移植・追加し、`npm run build`/`npm test`で確認済み
   - `firestore.rules`に`roadSegments`/`config`/`rateLimits`/`spotVotes`用のルールを追加
   （project-039にも存在していたが、Phase 3dのルール移植では見落としていた）
-- [ ] **Cloud Functions移植（経路探索エンジン、スコープ外）** — `searchRoute`（Callable、
-  オンデマンド経路探索）・`shadowCalcBatch`（影スコアバッチ）・
-  `syncModerationConfigFromRemoteConfig`（Remote Config同期）は、依存する経路探索エンジン
-  一式（`buildGraph`/`shadowScore`/`routeSearch`/`firestoreRoadNetwork`/`spatialIndex`等、
-  project-039の`functions/src/`に7ファイル）の移植量が大きいため今回は見送った。
-  クライアント側は`firebaseAvailableProvider`が`false`の間`LocalRouteSearchService`
-  （オンデバイス版、アセット同梱データを使用）にフォールバックするため、実害なく後回しにできる。
-  Firebase接続後に安全ルート検索をサーバーサイドで行いたくなった時点で着手する
+- [x] **Cloud Functions移植（経路探索エンジン）** — `searchRoute`（Callable、日陰重み付き
+  Dijkstra法によるオンデマンド経路探索）を移植した:
+  - `routeGeo.ts`（Haversine距離・中点・度ラジアン変換）
+  - `routeGraph.ts`（`buildGraph`。道路網ノード列→両方向の辺グラフ構築）
+  - `routeMinHeap.ts`（`MinHeap`。Dijkstra法用の優先度付きキュー）
+  - `routeSearchEngine.ts`（`searchRouteOnGraph`。日陰スコア重み付きDijkstra法）
+  - `routeSpatialIndex.ts`（`buildSpatialIndex`/`nearestNodeIdIndexed`/
+    `itemsWithinBoundingBoxIndexed`。グリッド分割による最近傍探索の高速化）
+  - `sunPosition.ts`（`getSunPosition`。NOAA Solar Position Calculator簡易版）
+  - `shadowScore.ts`（`computeShadowScores`。建物高さ・太陽位置から区間ごとの日陰スコアを計算）
+  - `firestoreRoadNetwork.ts`（`roadNodes`/`roadWays`/`buildings`/`roadSegments`の読み込み）
+  - `routeResponse.ts`（`buildSegmentBreakdown`。探索結果をクライアント描画用の区間内訳に変換）
+  - `searchRoute.ts`（Callable Function本体。プロセス内メモリでグラフを5分間キャッシュ、
+    `spotRateLimiting.ts`に追加した`SEARCH_ROUTE_RATE_LIMIT_*`でレート制限）
+  - 純関数群にユニットテストを追加し、`npm run build`/`npm test`で確認済み（計54件）
+  - 実装中に`nearestNodeIdIndexed`がノード0件（空インデックス）の場合に無限ループする
+    バグを発見・修正（bboxが`Infinity`になり走査上限が確定しなくなっていた）
+- [ ] **Cloud Functions移植（バッチ・スコープ外）** — `shadowCalcBatch`（3時間おきの影スコア
+  再計算バッチ）・`syncModerationConfigFromRemoteConfig`（Remote Config同期）は、
+  `searchRoute`が必要時に建物データから都度フォールバック計算する経路でカバーできるため
+  今回は見送った。定期実行の恩恵（毎回の計算コスト削減）が必要になった時点で着手する
 
 ## 未決定の論点
 

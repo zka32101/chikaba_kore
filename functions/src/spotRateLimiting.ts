@@ -52,6 +52,11 @@ export const COMMENT_RATE_LIMIT_MAX_REQUESTS = 10; // コメントは投稿よ�
 export const VOTE_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 直近10分間
 export const VOTE_RATE_LIMIT_MAX_REQUESTS = 10; // コメントの連投レート制限と同じ上限
 
+// searchRoute（経路探索）の不正利用対策。探索1回あたりの計算コストが軽くないため、
+// 投稿・コメントより短い時間窓・高頻度想定でレート制限する。
+export const SEARCH_ROUTE_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 直近1分間
+export const SEARCH_ROUTE_RATE_LIMIT_MAX_REQUESTS = 30;
+
 interface RateLimitState {
   windowStartMs: number;
   count: number;

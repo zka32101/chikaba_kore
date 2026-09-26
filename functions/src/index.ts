@@ -12,3 +12,4 @@ export { onShadeSpotApproved, onBrightnessSpotApproved } from './onSpotApprove';
 export { onSpotCommentCreated } from './onSpotCommentCreate';
 export { voteSpot } from './voteSpot';
 export { syncVerificationStatus } from './syncVerificationStatus';
+export { searchRoute } from './searchRoute';
