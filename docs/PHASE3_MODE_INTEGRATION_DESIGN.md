@@ -146,9 +146,15 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
   実際に「即時反映」や「本人確認」を機能させるには別途Cloud Functions移植が必要。次のアクション参照）
 - **Phase 3f**: project-039リポジトリの開発終了（アーカイブ）、chikaba_kore単一リポジトリでの運用開始。
   以下の順で実施する想定:
-  1. Cloud Functions移植（Phase 3eで先送りした分）を完了し、実機でひととおり動作確認する
-  2. project-039のREADMEに「chikaba_kore（近場まっぷ）に統合済み」と明記し、GitHub Actions（CI/CD）を無効化する
-  3. リポジトリをアーカイブ（読み取り専用化）する。実施タイミングはユーザー判断（未決定の論点1）
+  1. ✅ Cloud Functions移植（Phase 3eで先送りした分）を完了（本ドキュメント「次のアクション」参照）
+  2. ✅ project-039の`README.md`にchikaba_kore（近場まっぷ）へ統合済みの案内を追記し、
+     GitHub Actions（CI/CD、`ci.yml`/`flutter-analysis-test.yml`/`functions-test.yml`/
+     `prototype-verification.yml`/`deploy-functions.yml`の5ファイル）の`push`/`pull_request`
+     トリガーを削除して`workflow_dispatch`（手動実行）のみに変更した
+     （project-039 PR #39でマージ済み。誤って本番Firebaseへ再デプロイされることを防止）
+  3. 実機でひととおり動作確認する（未実施。Firebase Console側のproject-039アプリ登録・
+     `google-services.json`発行が必要、タスク#8）
+  4. リポジトリをアーカイブ（読み取り専用化）する。実施タイミングはユーザー判断（未決定の論点1）
 
 各サブフェーズは独立してPR化・マージ可能な粒度を意図している。
 
