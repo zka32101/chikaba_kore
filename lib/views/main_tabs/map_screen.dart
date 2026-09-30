@@ -285,7 +285,7 @@ class _ModeSwitcher extends StatelessWidget {
             ),
             ButtonSegment(
               value: MapMode.safetyRoute,
-              label: Text('安全ルートを探す'),
+              label: Text('安心ルートを探す'),
               icon: Icon(Icons.shield_outlined, size: 16),
             ),
           ],
