@@ -197,6 +197,11 @@ class SettingsScreen extends ConsumerWidget {
                     .read(notificationPreferencesProvider.notifier)
                     .setEnabled(v),
               ),
+              _SettingsItem(
+                icon: Icons.campaign_outlined,
+                label: 'お知らせ',
+                onTap: () => context.push('/announcements'),
+              ),
             ],
           ),
           _SettingsSection(

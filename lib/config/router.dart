@@ -14,6 +14,7 @@ import '../views/write_review_screen.dart';
 import '../views/profile_edit_screen.dart';
 import '../views/screens/premium_screen.dart';
 import '../views/screens/pending_reviews_screen.dart';
+import '../views/announcements/announcements_screen.dart';
 import '../views/safety_route/paint_submission_screen.dart';
 import '../views/safety_route/phone_verification_screen.dart';
 import '../views/safety_route/spot_comments_screen.dart';
@@ -39,6 +40,7 @@ final appRouter = GoRouter(
     GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
     GoRoute(path: '/profile/edit', builder: (_, _) => const ProfileEditScreen()),
     GoRoute(path: '/premium', builder: (_, _) => const PremiumScreen()),
+    GoRoute(path: '/announcements', builder: (_, _) => const AnnouncementsScreen()),
     GoRoute(
       path: '/admin/pending-reviews',
       builder: (_, _) => const PendingReviewsScreen(),

@@ -99,7 +99,7 @@ class NotificationService {
     }
     switch (type) {
       case 'announcement':
-        appRouter.go('/home');
+        appRouter.push('/announcements');
       default:
         appRouter.go('/home');
     }

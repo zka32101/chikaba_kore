@@ -13,3 +13,4 @@ export { onSpotCommentCreated } from './onSpotCommentCreate';
 export { voteSpot } from './voteSpot';
 export { syncVerificationStatus } from './syncVerificationStatus';
 export { searchRoute } from './searchRoute';
+export { onAnnouncementCreated } from './onAnnouncementCreate';
