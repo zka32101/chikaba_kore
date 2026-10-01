@@ -213,4 +213,12 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
    `announcements`ドキュメントの作成（運営が管理コンソール等から行う想定、クライアントからの
    書き込みは`firestore.rules`で禁止）をトリガーに`onAnnouncementCreated`（Cloud Functions）
    がFCM配信する
-4. **スポット投稿系へのモデレーション基盤展開の時期** — ✅ 方針決定済み。Phase 3内では対応せず、Phase 4に回す
+4. **スポット投稿系へのモデレーション基盤展開の時期** — ✅ 実装済み（Phase 4）。管理者メニューに
+   「承認待ち投稿（安心ルート）」を追加（`/admin/pending-spots`、`PendingSpotsScreen`。
+   `PendingReviewsScreen`と同じ構成）。`shadeSpots`/`brightnessSpots`のfirestore.rulesは
+   `allow update, delete: if false`でクライアントからの直接更新を禁止しているため
+   （クチコミとは異なる制約）、承認/却下は新設の`moderateSpot`Callable Function
+   （`admin`Custom Claimを要求、Admin SDK経由でルールの制約を受けない）経由で行う。
+   承認（statusを'approved'に更新）すると既存の`onSpotApprove.ts`のonUpdateトリガーが
+   自動的に道路区間への集計反映を行うため、Callable Function自体にはstatus更新/削除のみを
+   実装し集計ロジックは重複させていない

@@ -11,6 +11,7 @@ export { onShadeSpotCreated, onBrightnessSpotCreated } from './onSpotCreate';
 export { onShadeSpotApproved, onBrightnessSpotApproved } from './onSpotApprove';
 export { onSpotCommentCreated } from './onSpotCommentCreate';
 export { voteSpot } from './voteSpot';
+export { moderateSpot } from './moderateSpot';
 export { syncVerificationStatus } from './syncVerificationStatus';
 export { searchRoute } from './searchRoute';
 export { onAnnouncementCreated } from './onAnnouncementCreate';
