@@ -84,7 +84,7 @@ MapScreen
 |---|---|
 | `SpotsListView`（投稿確認） | 地図タブ・安全ルートモードのオーバーフローメニューから独立画面へ遷移（`/safety-route/spots`） |
 | `SpotCommentsListView`（みんなの声） | 同上（`/safety-route/comments`）。電話番号認証が必要な投稿操作はここに集約 |
-| `AnnouncementsListView`（お知らせ） | Phase 3スコープ外とし先送り。chikaba_koreに類似機能が無く、通知バナー（Phase1で統合済み）である程度代替できるため。将来的にマイページ内「お知らせ」項目として統合を検討（Phase 4候補） |
+| `AnnouncementsListView`（お知らせ） | Phase 3では先送りしたが、Phase 4でマイページ（設定画面）「通知」セクション内「お知らせ」項目として統合済み（`/announcements`） |
 | `PaintSubmissionView`（塗って投稿） | 安全ルートモードのFABから遷移（`/safety-route/submit`） |
 | `PhoneVerificationView`（本人確認） | マイページ（設定画面）に「本人確認」セクションを追加し、そこから遷移。安全ルートモードのコメント投稿時に未確認ならここへ誘導 |
 | `PaywallView`（課金誘導） | 既存の`PremiumScreen`に統合済みのRevenueCat基盤を再利用し、個別のPaywallViewは作らない |
@@ -205,5 +205,12 @@ chikaba_kore側は既に`reviews`にレート制限・通報・承認フロー�
    - 配色は現状維持。近場まっぷ（`#2D6A4F`）・あんしんみち（`#2E7D5B`）ともに基調が
      緑系で近く、安心スコアの黄〜濃緑グラデーションも既にあんしんみち由来をそのまま
      流用済みのため、追加のブランディング作業は不要と判断
-3. **お知らせ機能の扱い** — ✅ 方針決定済み。Phase 3では先送り、Phase 4候補として据え置き
+3. **お知らせ機能の扱い** — ✅ 実装済み（Phase 4）。マイページ「通知」セクションに
+   「お知らせ」項目を追加（`/announcements`、`AnnouncementsScreen`）。配信は既存の
+   「プッシュ通知」設定が購読/解除する`general`トピックへ相乗りする方式を採用し、
+   お知らせ専用のトピック・オン/オフは設けていない（project-039は専用の`announcements`
+   トピックだったが、chikaba_kore既存の通知設定と一本化するため変更した）。
+   `announcements`ドキュメントの作成（運営が管理コンソール等から行う想定、クライアントからの
+   書き込みは`firestore.rules`で禁止）をトリガーに`onAnnouncementCreated`（Cloud Functions）
+   がFCM配信する
 4. **スポット投稿系へのモデレーション基盤展開の時期** — ✅ 方針決定済み。Phase 3内では対応せず、Phase 4に回す

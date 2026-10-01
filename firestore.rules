@@ -118,6 +118,13 @@ service cloud.firestore {
       }
     }
 
+    // お知らせ（あんしんみち由来）。運営が管理コンソール等から作成する想定で、
+    // 作成をトリガーにCloud Functions（onAnnouncementCreated）がプッシュ通知を送信する。
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // セキュリティ関数
 
     // ユーザー作成時の検証
