@@ -13,6 +13,9 @@ class ReviewRepository {
   Future<void> reportReview(String reviewId, String userId) =>
       _firestore.reportReview(reviewId, userId);
 
+  Future<void> voteHelpful(String reviewId, String userId) =>
+      _firestore.voteHelpful(reviewId, userId);
+
   Future<List<ReviewModel>> getPendingReviews({int limit = 50}) =>
       _firestore.getPendingReviews(limit: limit);
 

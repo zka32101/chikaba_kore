@@ -119,6 +119,20 @@ class FirestoreService {
         .set({'createdAt': FieldValue.serverTimestamp()});
   }
 
+  /// クチコミに「参考になった」投票をする。reports/{userId}と同じ考え方で、
+  /// helpfulVotes/{userId} をdocIdにすることで同一ユーザーの二重投票を防ぐ
+  /// （firestore.rulesで2回目の作成を拒否する）。カウント自体は
+  /// Cloud Functions (onReviewHelpfulVoteCreate) がreviewドキュメントの
+  /// helpfulCountをインクリメントする。
+  Future<void> voteHelpful(String reviewId, String userId) async {
+    await _db
+        .collection('reviews')
+        .doc(reviewId)
+        .collection('helpfulVotes')
+        .doc(userId)
+        .set({'createdAt': FieldValue.serverTimestamp()});
+  }
+
   /// 承認待ち（status == 'pending'）のクチコミ一覧を取得する。管理者専用。
   Future<List<ReviewModel>> getPendingReviews({int limit = 50}) async {
     final snapshot = await _db

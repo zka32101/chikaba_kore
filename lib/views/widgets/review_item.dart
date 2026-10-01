@@ -101,6 +101,8 @@ class ReviewItem extends ConsumerWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
+              const Spacer(),
+              _HelpfulButton(review: review),
             ],
           ),
         ],
@@ -277,6 +279,57 @@ class ReviewItem extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HelpfulButton extends ConsumerWidget {
+  final ReviewModel review;
+  const _HelpfulButton({required this.review});
+
+  Future<void> _handleVote(BuildContext context, WidgetRef ref, String uid) async {
+    try {
+      await ref.read(reviewHelpfulNotifierProvider.notifier).vote(review.id, uid);
+      await ref.read(helpfulVoteCacheProvider.notifier).markVoted(review.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('投票に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final hasVoted = ref.watch(helpfulVoteCacheProvider).contains(review.id);
+    final isLoading = ref.watch(reviewHelpfulNotifierProvider).isLoading;
+    final color = hasVoted ? AppColors.primary : AppColors.textSecondary;
+
+    return GestureDetector(
+      onTap: currentUser == null || hasVoted || isLoading
+          ? null
+          : () => _handleVote(context, ref, currentUser.uid),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hasVoted ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+            size: 14,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            review.helpfulCount > 0 ? '参考になった (${review.helpfulCount})' : '参考になった',
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: hasVoted ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }
