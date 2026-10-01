@@ -14,6 +14,7 @@ import '../views/write_review_screen.dart';
 import '../views/profile_edit_screen.dart';
 import '../views/screens/premium_screen.dart';
 import '../views/screens/pending_reviews_screen.dart';
+import '../views/screens/pending_spots_screen.dart';
 import '../views/announcements/announcements_screen.dart';
 import '../views/safety_route/paint_submission_screen.dart';
 import '../views/safety_route/phone_verification_screen.dart';
@@ -44,6 +45,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/admin/pending-reviews',
       builder: (_, _) => const PendingReviewsScreen(),
+    ),
+    GoRoute(
+      path: '/admin/pending-spots',
+      builder: (_, _) => const PendingSpotsScreen(),
     ),
     GoRoute(
       path: '/facility/:id/review',

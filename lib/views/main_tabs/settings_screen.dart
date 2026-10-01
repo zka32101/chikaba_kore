@@ -244,6 +244,11 @@ class SettingsScreen extends ConsumerWidget {
                   label: '承認待ちクチコミ',
                   onTap: () => context.push('/admin/pending-reviews'),
                 ),
+                _SettingsItem(
+                  icon: Icons.shield_outlined,
+                  label: '承認待ち投稿（安心ルート）',
+                  onTap: () => context.push('/admin/pending-spots'),
+                ),
               ],
             ),
           _SettingsSection(
