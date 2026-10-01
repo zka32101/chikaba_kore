@@ -92,6 +92,14 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // お気に入り（「行きたい」リスト）の共有スナップショット。誰でも閲覧可
+    // （共有コードを知っている相手に見せる想定）。作成後は不変（更新・削除不可）。
+    match /sharedLists/{shareId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
     // レビュー
     match /reviews/{reviewId} {
       // 承認済みは誰でも閲覧可。本人は自分の投稿を承認待ち含めて閲覧可能。

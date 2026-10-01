@@ -16,6 +16,7 @@ import '../views/screens/premium_screen.dart';
 import '../views/screens/pending_reviews_screen.dart';
 import '../views/screens/pending_spots_screen.dart';
 import '../views/announcements/announcements_screen.dart';
+import '../views/screens/shared_list_screen.dart';
 import '../views/safety_route/paint_submission_screen.dart';
 import '../views/safety_route/phone_verification_screen.dart';
 import '../views/safety_route/spot_comments_screen.dart';
@@ -42,6 +43,12 @@ final appRouter = GoRouter(
     GoRoute(path: '/profile/edit', builder: (_, _) => const ProfileEditScreen()),
     GoRoute(path: '/premium', builder: (_, _) => const PremiumScreen()),
     GoRoute(path: '/announcements', builder: (_, _) => const AnnouncementsScreen()),
+    GoRoute(
+      path: '/shared-list',
+      builder: (_, state) => SharedListScreen(
+        initialShareCode: state.uri.queryParameters['code'],
+      ),
+    ),
     GoRoute(
       path: '/admin/pending-reviews',
       builder: (_, _) => const PendingReviewsScreen(),
