@@ -132,6 +132,16 @@ service cloud.firestore {
         allow create: if request.auth != null && request.auth.uid == userId;
         allow update, delete: if false;
       }
+
+      // クチコミへの「参考になった」投票。docIdをuserIdにすることで同一ユーザーの
+      // 二重投票を防ぐ（2回目のset()はupdateとして扱われ、常に拒否される）。
+      // 投票済み一覧はクライアントから読めない(Cloud Functionsが件数カウントのみ行う。
+      // UI側の「投票済み」表示はこのデバイス内のローカルキャッシュで行う)。
+      match /helpfulVotes/{userId} {
+        allow read: if false;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
+      }
     }
 
     // お知らせ（あんしんみち由来）。運営が管理コンソール等から作成する想定で、

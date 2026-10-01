@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/review_model.dart';
 import '../repositories/review_repository.dart';
 import 'facility_provider.dart';
+
+const _kHelpfulVotedReviewIdsKey = 'helpful_voted_review_ids';
 
 final reviewRepositoryProvider = Provider<ReviewRepository>(
   (ref) => ReviewRepository(ref.watch(firestoreServiceProvider)),
@@ -72,3 +75,50 @@ final reviewModerationNotifierProvider =
     StateNotifierProvider<ReviewModerationNotifier, AsyncValue<void>>((ref) {
   return ReviewModerationNotifier(ref.watch(reviewRepositoryProvider), ref);
 });
+
+/// 「参考になった」の投票操作。サーバー側（firestore.rules）が同一ユーザーの
+/// 二重投票を拒否するが、UI側で投票済みかどうかを即座に表示するためローカル
+/// （Hive）にも投票済みのreviewIdを記録する。
+class ReviewHelpfulNotifier extends StateNotifier<AsyncValue<void>> {
+  final ReviewRepository _repo;
+  ReviewHelpfulNotifier(this._repo) : super(const AsyncValue.data(null));
+
+  Future<void> vote(String reviewId, String userId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repo.voteHelpful(reviewId, userId);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+}
+
+final reviewHelpfulNotifierProvider =
+    StateNotifierProvider<ReviewHelpfulNotifier, AsyncValue<void>>((ref) {
+  return ReviewHelpfulNotifier(ref.watch(reviewRepositoryProvider));
+});
+
+/// 「参考になった」を投票済みのreviewId一覧（このデバイス内のみ、Hiveで永続化）。
+class HelpfulVoteCacheNotifier extends StateNotifier<Set<String>> {
+  HelpfulVoteCacheNotifier() : super(_loadFromHive());
+
+  static Set<String> _loadFromHive() {
+    final box = Hive.box('user');
+    final stored = box.get(_kHelpfulVotedReviewIdsKey, defaultValue: const <String>[]) as List;
+    return stored.cast<String>().toSet();
+  }
+
+  Future<void> markVoted(String reviewId) async {
+    if (state.contains(reviewId)) return;
+    final updated = {...state, reviewId};
+    await Hive.box('user').put(_kHelpfulVotedReviewIdsKey, updated.toList());
+    state = updated;
+  }
+}
+
+final helpfulVoteCacheProvider =
+    StateNotifierProvider<HelpfulVoteCacheNotifier, Set<String>>(
+  (ref) => HelpfulVoteCacheNotifier(),
+);

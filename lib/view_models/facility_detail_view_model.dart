@@ -14,7 +14,7 @@ class FacilityDetailState {
   final bool isLoading;
   final bool isLoadingReviews;
   final String? error;
-  /// ソート順: 'new'（新着）、'rating_high'（高評価）、'rating_low'（低評価）
+  /// ソート順: 'new'（新着）、'rating_high'（高評価）、'rating_low'（低評価）、'helpful'（参考になった順）
   final String reviewSortBy;
   /// フィルタリング: 最小評価。null で全件表示
   final double? reviewMinRating;
@@ -43,6 +43,8 @@ class FacilityDetailState {
         result.sort((a, b) => b.rating.compareTo(a.rating));
       case 'rating_low':
         result.sort((a, b) => a.rating.compareTo(b.rating));
+      case 'helpful':
+        result.sort((a, b) => b.helpfulCount.compareTo(a.helpfulCount));
       case 'new':
       default:
         result.sort((a, b) => b.createdAt.compareTo(a.createdAt));

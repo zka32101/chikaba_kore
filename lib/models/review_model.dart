@@ -13,6 +13,7 @@ class ReviewModel {
   final DateTime createdAt;
   final bool isVerified;
   final String status; // 'approved' or 'pending'（連投レート制限に触れた場合のみサーバー側でpendingへ）
+  final int helpfulCount; // 「参考になった」の件数。onReviewHelpfulVoteCreateがインクリメントする
 
   const ReviewModel({
     required this.id,
@@ -27,6 +28,7 @@ class ReviewModel {
     required this.createdAt,
     this.isVerified = false,
     this.status = 'approved',
+    this.helpfulCount = 0,
   });
 
   factory ReviewModel.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +46,7 @@ class ReviewModel {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       isVerified: data['isVerified'] as bool? ?? false,
       status: data['status'] as String? ?? 'approved',
+      helpfulCount: (data['helpfulCount'] as num?)?.toInt() ?? 0,
     );
   }
 

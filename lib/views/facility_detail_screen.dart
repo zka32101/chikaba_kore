@@ -877,6 +877,7 @@ class _SortMenu extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       itemBuilder: (ctx) => [
         const PopupMenuItem(value: 'new', child: Text('新着順')),
+        const PopupMenuItem(value: 'helpful', child: Text('参考になった順')),
         const PopupMenuItem(value: 'rating_high', child: Text('高評価順')),
         const PopupMenuItem(value: 'rating_low', child: Text('低評価順')),
       ],
@@ -894,11 +895,12 @@ class _SortMenu extends StatelessWidget {
                 color: AppColors.textSecondary, size: 16),
             const SizedBox(width: 4),
             Text(
-              sortBy == 'new'
-                  ? '新着'
-                  : sortBy == 'rating_high'
-                      ? '高評価'
-                      : '低評価',
+              switch (sortBy) {
+                'rating_high' => '高評価',
+                'rating_low' => '低評価',
+                'helpful' => '参考になった',
+                _ => '新着',
+              },
               style: const TextStyle(
                   fontSize: 12, color: AppColors.textSecondary),
             ),
