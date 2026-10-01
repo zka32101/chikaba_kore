@@ -15,6 +15,7 @@ import '../providers/auth_provider.dart';
 import '../utils/maps_launcher.dart';
 import 'widgets/review_item.dart';
 import 'widgets/loading_shimmer.dart';
+import 'widgets/congestion_section.dart';
 
 class FacilityDetailScreen extends ConsumerWidget {
   final String facilityId;
@@ -63,6 +64,8 @@ class FacilityDetailScreen extends ConsumerWidget {
                   const _SectionDivider(),
                   _buildBusinessHours(context, facility),
                   if (facility.businessHours.isNotEmpty) const _SectionDivider(),
+                  CongestionSection(facilityId: facility.id),
+                  const _SectionDivider(),
                   _buildReviews(context, ref, facility, state, user),
                   const SizedBox(height: 80), // FABとの余白
                 ],

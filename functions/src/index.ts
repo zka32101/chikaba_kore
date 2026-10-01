@@ -15,3 +15,6 @@ export { moderateSpot } from './moderateSpot';
 export { syncVerificationStatus } from './syncVerificationStatus';
 export { searchRoute } from './searchRoute';
 export { onAnnouncementCreated } from './onAnnouncementCreate';
+
+// 混雑状況共有（近場まっぷ本体機能、docs/PHASE4_CONGESTION_REPORTS_DESIGN.md参照）
+export { submitCongestionReport } from './submitCongestionReport';
