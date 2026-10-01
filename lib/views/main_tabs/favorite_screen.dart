@@ -7,6 +7,7 @@ import '../../config/theme/app_theme.dart';
 import '../../models/favorite_model.dart';
 import '../../providers/favorite_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/shared_list_provider.dart';
 import '../widgets/custom_app_bar.dart';
 
 class FavoriteScreen extends ConsumerStatefulWidget {
@@ -46,6 +47,36 @@ class _FavoriteScreenState extends ConsumerState<FavoriteScreen>
     }
     text.writeln('\n共有元：近場コレ\n#近場コレ');
     Share.share(text.toString(), subject: 'お気に入り（${favorites.length}件）');
+  }
+
+  /// 「行きたい」リストのスナップショットを共有コードとして発行し、相手がアプリ内の
+  /// 「共有リストを見る」画面で入力・閲覧できるようにする（`SharedListScreen`参照）。
+  Future<void> _shareAsLink(List<FavoriteModel> wantToGo) async {
+    if (wantToGo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('「行きたい」リストが空です')),
+      );
+      return;
+    }
+    final user = ref.read(authNotifierProvider).valueOrNull;
+    if (user == null) return;
+
+    try {
+      final code = await ref
+          .read(sharedListCreateNotifierProvider.notifier)
+          .create(user.nickname, wantToGo);
+      await Share.share(
+        '【近場まっぷ】${user.nickname}さんの行きたいリストを見る\n\n'
+        'アプリの「お気に入り」→「共有リストを見る」でこのコードを入力してください:\n$code\n\n#近場まっぷ',
+        subject: '行きたいリストを共有',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('共有リンクの作成に失敗しました: $e')),
+        );
+      }
+    }
   }
 
   void _showComparisonView() {
@@ -183,10 +214,25 @@ class _FavoriteScreenState extends ConsumerState<FavoriteScreen>
                 onPressed: null,
               ),
             ),
-            IconButton(
+            PopupMenuButton<String>(
               icon: const Icon(Icons.share_outlined),
               tooltip: '共有',
-              onPressed: () => _shareFavorites(wantToGo + willGo),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onSelected: (v) {
+                switch (v) {
+                  case 'text':
+                    _shareFavorites(wantToGo + willGo);
+                  case 'link':
+                    _shareAsLink(wantToGo);
+                  case 'view':
+                    context.push('/shared-list');
+                }
+              },
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(value: 'text', child: Text('テキストで共有')),
+                PopupMenuItem(value: 'link', child: Text('行きたいリストをリンクで共有')),
+                PopupMenuItem(value: 'view', child: Text('共有リストを見る')),
+              ],
             ),
           ],
           Padding(
