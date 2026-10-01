@@ -84,6 +84,14 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // 施設の「今の混雑状況」投稿。誰でも閲覧可（直近の投稿から集計して表示）。
+    // 投稿はsubmitCongestionReport（Callable Functions、Admin SDK）経由のみ
+    // （クライアントから直接作成すると連投レート制限を回避できてしまうため）。
+    match /congestionReports/{reportId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
     // レビュー
     match /reviews/{reviewId} {
       // 承認済みは誰でも閲覧可。本人は自分の投稿を承認待ち含めて閲覧可能。
