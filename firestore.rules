@@ -82,6 +82,16 @@ service cloud.firestore {
     match /facilities/{facilityId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+
+      // 施設への「穴場だと思う」投票。docIdをuserIdにすることで同一ユーザーの
+      // 二重投票を防ぐ（2回目のset()はupdateとして扱われ、常に拒否される。
+      // reviews/{reviewId}/helpfulVotesと同じ考え方）。投票済み一覧はクライアント
+      // から読めない(Cloud Functionsが件数カウントのみ行う)。
+      match /hiddenGemVotes/{userId} {
+        allow read: if false;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if false;
+      }
     }
 
     // 施設の「今の混雑状況」投稿。誰でも閲覧可（直近の投稿から集計して表示）。

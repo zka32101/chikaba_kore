@@ -40,4 +40,7 @@ class FacilityRepository {
   /// ガチャ用：フィルタなしで全施設を取得
   Future<List<FacilityModel>> getAllFacilities() =>
       _firestore.getAllFacilities();
+
+  Future<void> voteHiddenGem(String facilityId, String userId) =>
+      _firestore.voteHiddenGem(facilityId, userId);
 }
