@@ -15,6 +15,7 @@ import '../providers/auth_provider.dart';
 import '../providers/facility_provider.dart';
 import '../utils/maps_launcher.dart';
 import 'widgets/review_item.dart';
+import 'widgets/review_image_gallery.dart';
 import 'widgets/loading_shimmer.dart';
 import 'widgets/congestion_section.dart';
 
@@ -487,6 +488,7 @@ class FacilityDetailScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           if (totalCount > 0) ...[
+            ReviewImageGallery(imageUrls: detailState.allReviewImageUrls),
             // フィルター・ソート行
             Row(
               children: [

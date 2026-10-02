@@ -62,6 +62,13 @@ class FacilityDetailState {
   /// フィルタリング後の全件数
   int get filteredReviewCount => filteredAndSortedReviews.length;
 
+  /// クチコミに添付された画像を横断的に新着順でフラット化したもの。
+  /// 画像ギャラリー表示用（フィルター・ソート設定の影響を受けない）
+  List<String> get allReviewImageUrls {
+    final sorted = [...reviews]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return sorted.expand((r) => r.imageUrls).toList();
+  }
+
   FacilityDetailState copyWith({
     FacilityModel? facility,
     List<ReviewModel>? reviews,
