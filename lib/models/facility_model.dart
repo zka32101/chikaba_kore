@@ -21,6 +21,7 @@ class FacilityModel {
   final double eccentricityScore; // 0-100 (評価高い × レビュー少ない × 地元民率高い)
   final double localReviewRatio; // 0-100 (地元民レビュー数 / 総レビュー数)
   final int localReviewCount; // 地元民からのレビュー数
+  final int hiddenGemVoteCount; // 「穴場だと思う」投票数。閾値以上で穴場バッジを表示
 
   const FacilityModel({
     required this.id,
@@ -42,6 +43,7 @@ class FacilityModel {
     this.eccentricityScore = 0.0,
     this.localReviewRatio = 0.0,
     this.localReviewCount = 0,
+    this.hiddenGemVoteCount = 0,
   });
 
   factory FacilityModel.fromFirestore(DocumentSnapshot doc) {
@@ -67,6 +69,7 @@ class FacilityModel {
       eccentricityScore: (data['eccentricityScore'] as num?)?.toDouble() ?? 0.0,
       localReviewRatio: (data['localReviewRatio'] as num?)?.toDouble() ?? 0.0,
       localReviewCount: data['localReviewCount'] as int? ?? 0,
+      hiddenGemVoteCount: data['hiddenGemVoteCount'] as int? ?? 0,
     );
   }
 
@@ -88,7 +91,13 @@ class FacilityModel {
         'eccentricityScore': eccentricityScore,
         'localReviewRatio': localReviewRatio,
         'localReviewCount': localReviewCount,
+        'hiddenGemVoteCount': hiddenGemVoteCount,
       };
 
   String get thumbnailUrl => imageUrls.isNotEmpty ? imageUrls.first : '';
+
+  /// この件数以上「穴場だと思う」投票が集まったら穴場バッジを表示する。
+  static const hiddenGemVoteThreshold = 3;
+
+  bool get isHiddenGem => hiddenGemVoteCount >= hiddenGemVoteThreshold;
 }

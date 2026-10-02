@@ -80,6 +80,19 @@ class FirestoreService {
     return FacilityModel.fromFirestore(doc);
   }
 
+  /// 施設に「穴場だと思う」投票をする。クチコミの「参考になった」
+  /// （reviews/{reviewId}/helpfulVotes）と同じ考え方で、docIdをuserIdにすることで
+  /// 同一ユーザーの二重投票を防ぐ。カウント自体はCloud Functions
+  /// (onFacilityHiddenGemVoteCreate) がhiddenGemVoteCountをインクリメントする。
+  Future<void> voteHiddenGem(String facilityId, String userId) async {
+    await _db
+        .collection('facilities')
+        .doc(facilityId)
+        .collection('hiddenGemVotes')
+        .doc(userId)
+        .set({'createdAt': FieldValue.serverTimestamp()});
+  }
+
   // ---- Reviews ----
 
   Future<List<ReviewModel>> getReviews(

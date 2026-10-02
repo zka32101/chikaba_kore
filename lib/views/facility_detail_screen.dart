@@ -12,6 +12,7 @@ import '../view_models/facility_detail_view_model.dart';
 import 'fullscreen_image_screen.dart';
 import '../providers/favorite_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/facility_provider.dart';
 import '../utils/maps_launcher.dart';
 import 'widgets/review_item.dart';
 import 'widgets/loading_shimmer.dart';
@@ -59,7 +60,7 @@ class FacilityDetailScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBasicInfo(context, facility),
+                  _buildBasicInfo(context, ref, facility),
                   _buildQuickActions(context, facility),
                   const _SectionDivider(),
                   _buildBusinessHours(context, facility),
@@ -153,7 +154,7 @@ class FacilityDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBasicInfo(BuildContext context, FacilityModel facility) {
+  Widget _buildBasicInfo(BuildContext context, WidgetRef ref, FacilityModel facility) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Column(
@@ -275,6 +276,8 @@ class FacilityDetailScreen extends ConsumerWidget {
               ],
             ),
           ],
+          const SizedBox(height: 10),
+          _HiddenGemVoteSection(facility: facility),
           if (facility.description.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
@@ -754,6 +757,92 @@ class _ActionTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 「穴場だと思う」投票ボタン＋バッジ表示。既存の`eccentricityScore`
+/// （自動算出の穴場スコア）とは別に、ユーザーが明示的に投票する仕組み。
+class _HiddenGemVoteSection extends ConsumerWidget {
+  final FacilityModel facility;
+  const _HiddenGemVoteSection({required this.facility});
+
+  Future<void> _handleVote(BuildContext context, WidgetRef ref, String uid) async {
+    try {
+      await ref.read(hiddenGemVoteNotifierProvider.notifier).vote(facility.id, uid);
+      await ref.read(hiddenGemVoteCacheProvider.notifier).markVoted(facility.id);
+      await ref.read(facilityDetailViewModelProvider(facility.id).notifier).refresh();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('投票に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(authNotifierProvider).valueOrNull;
+    final hasVoted = ref.watch(hiddenGemVoteCacheProvider).contains(facility.id);
+    final isLoading = ref.watch(hiddenGemVoteNotifierProvider).isLoading;
+    final color = hasVoted ? AppColors.primary : AppColors.textSecondary;
+
+    return Row(
+      children: [
+        if (facility.isHiddenGem) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('🙊', style: TextStyle(fontSize: 12)),
+                SizedBox(width: 4),
+                Text(
+                  'みんなが選ぶ穴場',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+        GestureDetector(
+          onTap: currentUser == null || hasVoted || isLoading
+              ? null
+              : () => _handleVote(context, ref, currentUser.uid),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                hasVoted ? Icons.auto_awesome_rounded : Icons.auto_awesome_outlined,
+                size: 14,
+                color: color,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                facility.hiddenGemVoteCount > 0
+                    ? '穴場だと思う (${facility.hiddenGemVoteCount})'
+                    : '穴場だと思う',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: hasVoted ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
