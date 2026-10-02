@@ -501,30 +501,62 @@ class _ProfileStats extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(favoritesProvider).valueOrNull ?? [];
+    final statsUser = ref.watch(userStatsProvider).valueOrNull;
+    final badge = statsUser?.visitBadgeLabel;
 
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
         children: [
-          _StatItem(
-            icon: Icons.edit_outlined,
-            value: '0',
-            label: '投稿',
-            color: AppColors.primary,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StatItem(
+                icon: Icons.edit_outlined,
+                value: (statsUser?.reviewCount ?? 0).toString(),
+                label: '投稿',
+                color: AppColors.primary,
+              ),
+              _StatItem(
+                icon: Icons.favorite_outlined,
+                value: favorites.length.toString(),
+                label: 'お気に入り',
+                color: AppColors.accent,
+              ),
+              _StatItem(
+                icon: Icons.location_on_outlined,
+                value: (statsUser?.visitCount ?? 0).toString(),
+                label: '訪問',
+                color: Colors.green,
+              ),
+            ],
           ),
-          _StatItem(
-            icon: Icons.favorite_outlined,
-            value: favorites.length.toString(),
-            label: 'お気に入り',
-            color: AppColors.accent,
-          ),
-          _StatItem(
-            icon: Icons.location_on_outlined,
-            value: '0',
-            label: '訪問',
-            color: Colors.green,
-          ),
+          if (badge != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.emoji_events, size: 14, color: AppColors.accent),
+                  const SizedBox(width: 4),
+                  Text(
+                    badge,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

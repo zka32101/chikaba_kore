@@ -169,10 +169,13 @@ service cloud.firestore {
         && data.nickname != null
         && (data.userType == 'local' || data.userType == 'visitor')
         && (!('isPremium' in data) || data.isPremium == false)
-        && (!('isVerified' in data) || data.isVerified == false);
+        && (!('isVerified' in data) || data.isVerified == false)
+        && (!('reviewCount' in data) || data.reviewCount == 0)
+        && (!('visitCount' in data) || data.visitCount == 0);
     }
 
-    // ユーザー更新時の検証（isPremium・isVerified は Cloud Functions のみ更新可能）
+    // ユーザー更新時の検証（isPremium・isVerified・reviewCount・visitCount は
+    // Cloud Functions のみ更新可能）
     function isValidUserUpdate(oldData, newData) {
       // isPremium フィールドの直接変更を禁止
       let isPremiumUnchanged = (('isPremium' in oldData) && (newData.isPremium == oldData.isPremium))
@@ -182,8 +185,17 @@ service cloud.firestore {
       let isVerifiedUnchanged = (('isVerified' in oldData) && (newData.isVerified == oldData.isVerified))
         || (!('isVerified' in oldData) && !('isVerified' in newData));
 
+      // reviewCount・visitCount フィールドの直接変更を禁止（訪問実績バッジ用、
+      // onReviewCreateUserStats/onFavoriteWillGoUpdate 経由のみ更新可能）
+      let reviewCountUnchanged = (('reviewCount' in oldData) && (newData.reviewCount == oldData.reviewCount))
+        || (!('reviewCount' in oldData) && !('reviewCount' in newData));
+      let visitCountUnchanged = (('visitCount' in oldData) && (newData.visitCount == oldData.visitCount))
+        || (!('visitCount' in oldData) && !('visitCount' in newData));
+
       return isPremiumUnchanged
         && isVerifiedUnchanged
+        && reviewCountUnchanged
+        && visitCountUnchanged
         && isValidUserCreate(newData);
     }
 

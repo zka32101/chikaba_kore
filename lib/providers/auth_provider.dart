@@ -19,6 +19,14 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
   return auth.getCurrentUser();
 });
 
+/// マイページの訪問実績表示用。reviewCount/visitCountはCloud Functions経由で
+/// 非同期に更新されるため、authNotifierProviderのキャッシュではなく画面表示の
+/// たびにFirestoreから再取得する。
+final userStatsProvider = FutureProvider.autoDispose<UserModel?>((ref) async {
+  final auth = ref.watch(authRepositoryProvider);
+  return auth.getCurrentUser();
+});
+
 /// 現在ログイン中のユーザーが管理者(Custom Claim)かどうか。
 /// クチコミの承認待ち一覧画面へのアクセス制御等に使用する。
 final isAdminProvider = FutureProvider<bool>((ref) async {
