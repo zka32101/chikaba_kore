@@ -9,6 +9,8 @@ class UserModel {
   final bool isPremium;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int reviewCount; // クチコミ投稿の累計数。Cloud Functionsのみ更新
+  final int visitCount; // 「訪問」実績の累計数（クチコミ投稿+お気に入り「行ってきた」）。Cloud Functionsのみ更新
 
   const UserModel({
     required this.uid,
@@ -19,7 +21,25 @@ class UserModel {
     this.isPremium = false,
     required this.createdAt,
     required this.updatedAt,
+    this.reviewCount = 0,
+    this.visitCount = 0,
   });
+
+  /// 訪問実績バッジの段階定義（閾値が高い順）
+  static const _visitBadgeTiers = <(int threshold, String label)>[
+    (30, '近場レジェンド'),
+    (15, '地元マスター'),
+    (5, 'ご近所探検家'),
+    (1, 'はじめての一歩'),
+  ];
+
+  /// 現在の訪問実績バッジ。該当なしの場合はnull
+  String? get visitBadgeLabel {
+    for (final tier in _visitBadgeTiers) {
+      if (visitCount >= tier.$1) return tier.$2;
+    }
+    return null;
+  }
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -32,6 +52,8 @@ class UserModel {
       isPremium: data['isPremium'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      reviewCount: data['reviewCount'] as int? ?? 0,
+      visitCount: data['visitCount'] as int? ?? 0,
     );
   }
 
@@ -43,6 +65,8 @@ class UserModel {
         'isPremium': isPremium,
         'createdAt': Timestamp.fromDate(createdAt),
         'updatedAt': Timestamp.fromDate(updatedAt),
+        'reviewCount': reviewCount,
+        'visitCount': visitCount,
       };
 
   UserModel copyWith({
@@ -62,5 +86,7 @@ class UserModel {
         isPremium: isPremium ?? this.isPremium,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        reviewCount: reviewCount,
+        visitCount: visitCount,
       );
 }

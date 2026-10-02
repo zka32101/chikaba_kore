@@ -6,6 +6,8 @@ export { onReviewCreate } from './onReviewCreate';
 export { onReviewReportCreate } from './onReviewReportCreate';
 export { onReviewHelpfulVoteCreate } from './onReviewHelpfulVoteCreate';
 export { onFacilityHiddenGemVoteCreate } from './onFacilityHiddenGemVoteCreate';
+export { onReviewCreateUserStats } from './onReviewCreateUserStats';
+export { onFavoriteWillGoUpdate } from './onFavoriteWillGoUpdate';
 export { revenuecatWebhook } from './revenuecatWebhook';
 
 // 安全ルート機能（あんしんみち由来、docs/PHASE3_MODE_INTEGRATION_DESIGN.md参照）
