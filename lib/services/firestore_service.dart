@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/facility_model.dart';
 import '../models/review_model.dart';
+import '../models/review_reply.dart';
 import '../models/favorite_model.dart';
 import '../utils/logger.dart';
 
@@ -160,6 +161,30 @@ class FirestoreService {
   /// 承認待ちクチコミを承認する（status: 'approved' へ）。管理者専用。
   Future<void> approveReview(String reviewId) async {
     await _db.collection('reviews').doc(reviewId).update({'status': 'approved'});
+  }
+
+  /// クチコミへの返信一覧を取得する（投稿順）。
+  Future<List<ReviewReply>> getReviewReplies(String reviewId, {int limit = 50}) async {
+    final snapshot = await _db
+        .collection('reviews')
+        .doc(reviewId)
+        .collection('replies')
+        .orderBy('createdAt')
+        .limit(limit)
+        .get();
+    return snapshot.docs
+        .map((doc) => ReviewReply.fromFirestore(reviewId, doc))
+        .toList();
+  }
+
+  /// クチコミに返信を投稿する。件数（replyCount）自体は
+  /// Cloud Functions (onReviewReplyCreate) がreviewドキュメントを更新する。
+  Future<void> addReviewReply(ReviewReply reply) async {
+    await _db
+        .collection('reviews')
+        .doc(reply.reviewId)
+        .collection('replies')
+        .add(reply.toFirestore());
   }
 
   /// 承認待ちクチコミを却下する（削除）。管理者専用。

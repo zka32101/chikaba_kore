@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/review_model.dart';
+import '../models/review_reply.dart';
 import '../repositories/review_repository.dart';
 import 'facility_provider.dart';
 
@@ -122,3 +123,34 @@ final helpfulVoteCacheProvider =
     StateNotifierProvider<HelpfulVoteCacheNotifier, Set<String>>(
   (ref) => HelpfulVoteCacheNotifier(),
 );
+
+/// 指定したクチコミへの返信一覧（投稿順）。
+final reviewRepliesProvider =
+    FutureProvider.autoDispose.family<List<ReviewReply>, String>((ref, reviewId) async {
+  final repo = ref.watch(reviewRepositoryProvider);
+  return repo.getReviewReplies(reviewId);
+});
+
+/// クチコミへの返信投稿操作。ログイン済みの全ユーザーが利用できる。
+class ReviewReplyNotifier extends StateNotifier<AsyncValue<void>> {
+  final ReviewRepository _repo;
+  final Ref _ref;
+  ReviewReplyNotifier(this._repo, this._ref) : super(const AsyncValue.data(null));
+
+  Future<void> submit(ReviewReply reply) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repo.addReviewReply(reply);
+      _ref.invalidate(reviewRepliesProvider(reply.reviewId));
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+}
+
+final reviewReplyNotifierProvider =
+    StateNotifierProvider<ReviewReplyNotifier, AsyncValue<void>>((ref) {
+  return ReviewReplyNotifier(ref.watch(reviewRepositoryProvider), ref);
+});

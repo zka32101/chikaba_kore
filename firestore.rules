@@ -152,6 +152,15 @@ service cloud.firestore {
         allow create: if request.auth != null && request.auth.uid == userId;
         allow update, delete: if false;
       }
+
+      // クチコミへの返信（リプライ）。ログイン済みの全ユーザーが投稿できる
+      // スレッド形式。一覧は誰でも閲覧可。編集・削除は未実装（投稿のみ）。
+      match /replies/{replyId} {
+        allow read: if true;
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
     }
 
     // お知らせ（あんしんみち由来）。運営が管理コンソール等から作成する想定で、

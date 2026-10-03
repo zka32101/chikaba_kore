@@ -5,6 +5,7 @@ admin.initializeApp();
 export { onReviewCreate } from './onReviewCreate';
 export { onReviewReportCreate } from './onReviewReportCreate';
 export { onReviewHelpfulVoteCreate } from './onReviewHelpfulVoteCreate';
+export { onReviewReplyCreate } from './onReviewReplyCreate';
 export { onFacilityHiddenGemVoteCreate } from './onFacilityHiddenGemVoteCreate';
 export { onReviewCreateUserStats } from './onReviewCreateUserStats';
 export { onFavoriteWillGoUpdate } from './onFavoriteWillGoUpdate';
