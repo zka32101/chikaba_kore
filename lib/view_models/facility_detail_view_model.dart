@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/facility_model.dart';
+import '../models/recent_facility_entry.dart';
 import '../models/review_model.dart';
 import '../providers/facility_provider.dart';
 import '../repositories/review_repository.dart';
+import '../services/cache_service.dart';
 
 const _reviewPageSize = 5;   // 初期表示件数
 const _reviewFetchLimit = 50; // Firestore から一括取得する上限
@@ -94,6 +96,7 @@ class FacilityDetailState {
 class FacilityDetailViewModel extends StateNotifier<FacilityDetailState> {
   final Ref _ref;
   final String facilityId;
+  final _cache = CacheService();
 
   FacilityDetailViewModel(this._ref, this.facilityId)
       : super(const FacilityDetailState()) {
@@ -106,7 +109,11 @@ class FacilityDetailViewModel extends StateNotifier<FacilityDetailState> {
       final facility =
           await _ref.read(facilityRepositoryProvider).getById(facilityId);
       state = state.copyWith(facility: facility, isLoading: false);
-      if (facility != null) await _loadReviews();
+      if (facility != null) {
+        await _loadReviews();
+        // 「最近見た施設」のローカル履歴に記録（Hive）
+        await _cache.addRecentFacility(RecentFacilityEntry.fromFacility(facility));
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }

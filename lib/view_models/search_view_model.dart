@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/facility_model.dart';
+import '../models/recent_facility_entry.dart';
 import '../providers/facility_provider.dart';
 import '../services/cache_service.dart';
 import '../utils/constants.dart';
@@ -12,6 +13,7 @@ class SearchState {
   final double? minRating; // null = すべて、3.0、4.0 など
   final List<FacilityModel> results;
   final List<String> recentSearches;
+  final List<RecentFacilityEntry> recentFacilities;
   final bool isLoading;
   final String? error;
   final bool hasSearched;
@@ -25,6 +27,7 @@ class SearchState {
     this.minRating,
     this.results = const [],
     this.recentSearches = const [],
+    this.recentFacilities = const [],
     this.isLoading = false,
     this.error,
     this.hasSearched = false,
@@ -38,6 +41,7 @@ class SearchState {
     Object? minRating = _sentinel,
     List<FacilityModel>? results,
     List<String>? recentSearches,
+    List<RecentFacilityEntry>? recentFacilities,
     bool? isLoading,
     Object? error = _sentinel,
     bool? hasSearched,
@@ -52,6 +56,7 @@ class SearchState {
         minRating: minRating == _sentinel ? this.minRating : minRating as double?,
         results: results ?? this.results,
         recentSearches: recentSearches ?? this.recentSearches,
+        recentFacilities: recentFacilities ?? this.recentFacilities,
         isLoading: isLoading ?? this.isLoading,
         error: error == _sentinel ? this.error : error as String?,
         hasSearched: hasSearched ?? this.hasSearched,
@@ -71,8 +76,10 @@ class SearchViewModel extends StateNotifier<SearchState> {
   }
 
   void _loadHistory() {
-    final history = _cache.searchHistory;
-    state = state.copyWith(recentSearches: history);
+    state = state.copyWith(
+      recentSearches: _cache.searchHistory,
+      recentFacilities: _cache.recentFacilities,
+    );
   }
 
   @override
@@ -118,6 +125,11 @@ class SearchViewModel extends StateNotifier<SearchState> {
   Future<void> clearHistory() async {
     await _cache.clearSearchHistory();
     state = state.copyWith(recentSearches: []);
+  }
+
+  Future<void> clearRecentFacilities() async {
+    await _cache.clearRecentFacilities();
+    state = state.copyWith(recentFacilities: []);
   }
 
   void setSortBy(String sortBy) {
