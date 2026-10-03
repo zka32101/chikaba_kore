@@ -7,6 +7,9 @@ abstract class CongestionService {
 
   /// 混雑状況を投稿する。
   Future<void> submitReport(String facilityId, CongestionLevel level);
+
+  /// 過去の投稿を時間帯(0-23時)別に集計した混雑パターンを取得する。
+  Future<CongestionHourlyPattern> fetchHourlyPattern(String facilityId);
 }
 
 /// Firebase未接続環境向けのフォールバック実装。常に情報なしを返す。
@@ -16,4 +19,8 @@ class LocalCongestionService implements CongestionService {
 
   @override
   Future<void> submitReport(String facilityId, CongestionLevel level) async {}
+
+  @override
+  Future<CongestionHourlyPattern> fetchHourlyPattern(String facilityId) async =>
+      CongestionHourlyPattern.empty;
 }
