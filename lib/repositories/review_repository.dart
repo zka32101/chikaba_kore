@@ -1,4 +1,5 @@
 import '../models/review_model.dart';
+import '../models/review_reply.dart';
 import '../services/firestore_service.dart';
 
 class ReviewRepository {
@@ -24,4 +25,10 @@ class ReviewRepository {
 
   Future<void> rejectReview(String reviewId) =>
       _firestore.rejectReview(reviewId);
+
+  Future<List<ReviewReply>> getReviewReplies(String reviewId) =>
+      _firestore.getReviewReplies(reviewId);
+
+  Future<void> addReviewReply(ReviewReply reply) =>
+      _firestore.addReviewReply(reply);
 }

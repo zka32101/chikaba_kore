@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/review_model.dart';
+import '../../models/review_reply.dart';
 import '../../config/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/review_provider.dart';
@@ -105,6 +106,8 @@ class ReviewItem extends ConsumerWidget {
               _HelpfulButton(review: review),
             ],
           ),
+          const SizedBox(height: 8),
+          _ReplySection(review: review),
         ],
       ),
     );
@@ -279,6 +282,186 @@ class ReviewItem extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// クチコミへの返信（リプライ）セクション。タップで一覧を展開し、
+/// ログイン済みの全ユーザーが返信を投稿できる（スレッド形式）。
+class _ReplySection extends ConsumerStatefulWidget {
+  final ReviewModel review;
+  const _ReplySection({required this.review});
+
+  @override
+  ConsumerState<_ReplySection> createState() => _ReplySectionState();
+}
+
+class _ReplySectionState extends ConsumerState<_ReplySection> {
+  bool _expanded = false;
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit(String uid, String nickname, String? avatarUrl) async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    try {
+      await ref.read(reviewReplyNotifierProvider.notifier).submit(
+            ReviewReply(
+              id: '',
+              reviewId: widget.review.id,
+              userId: uid,
+              userNickname: nickname,
+              userProfileImageUrl: avatarUrl,
+              text: text,
+              createdAt: DateTime.now(),
+            ),
+          );
+      _controller.clear();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('返信に失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final isSubmitting = ref.watch(reviewReplyNotifierProvider).isLoading;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.reply_rounded, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 4),
+              Text(
+                widget.review.replyCount > 0 ? '返信 (${widget.review.replyCount})' : '返信',
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 8),
+          Consumer(
+            builder: (context, ref, _) {
+              final repliesAsync = ref.watch(reviewRepliesProvider(widget.review.id));
+              return repliesAsync.when(
+                data: (replies) =>
+                    Column(children: replies.map((r) => _ReplyItem(reply: r)).toList()),
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+                error: (_, _) => const Text(
+                  '返信の取得に失敗しました',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                ),
+              );
+            },
+          ),
+          if (currentUser != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    maxLines: 1,
+                    decoration: const InputDecoration(
+                      hintText: '返信する...',
+                      hintStyle: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(20))),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.send_rounded, size: 18, color: AppColors.primary),
+                  onPressed: isSubmitting
+                      ? null
+                      : () => _handleSubmit(
+                          currentUser.uid, currentUser.nickname, currentUser.profileImageUrl),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+/// 返信1件分の表示。
+class _ReplyItem extends StatelessWidget {
+  final ReviewReply reply;
+  const _ReplyItem({required this.reply});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundImage: reply.userProfileImageUrl != null
+                ? CachedNetworkImageProvider(reply.userProfileImageUrl!)
+                : null,
+            backgroundColor: AppColors.divider,
+            child: reply.userProfileImageUrl == null
+                ? const Icon(Icons.person_rounded, size: 12, color: AppColors.textSecondary)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    reply.userNickname,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(reply.text, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

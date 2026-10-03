@@ -14,6 +14,7 @@ class ReviewModel {
   final bool isVerified;
   final String status; // 'approved' or 'pending'（連投レート制限に触れた場合のみサーバー側でpendingへ）
   final int helpfulCount; // 「参考になった」の件数。onReviewHelpfulVoteCreateがインクリメントする
+  final int replyCount; // 返信（リプライ）の件数。onReviewReplyCreateがインクリメントする
 
   const ReviewModel({
     required this.id,
@@ -29,6 +30,7 @@ class ReviewModel {
     this.isVerified = false,
     this.status = 'approved',
     this.helpfulCount = 0,
+    this.replyCount = 0,
   });
 
   factory ReviewModel.fromFirestore(DocumentSnapshot doc) {
@@ -47,6 +49,7 @@ class ReviewModel {
       isVerified: data['isVerified'] as bool? ?? false,
       status: data['status'] as String? ?? 'approved',
       helpfulCount: (data['helpfulCount'] as num?)?.toInt() ?? 0,
+      replyCount: (data['replyCount'] as num?)?.toInt() ?? 0,
     );
   }
 
