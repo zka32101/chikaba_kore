@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../models/review_draft.dart';
 import '../models/review_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/facility_provider.dart';
+import '../services/cache_service.dart';
 import '../services/storage_service.dart';
 import '../repositories/review_repository.dart';
 
@@ -51,12 +53,39 @@ class WriteReviewViewModel extends StateNotifier<WriteReviewState> {
   final String _facilityId;
   final _picker = ImagePicker();
   final _storage = StorageService();
+  final _cache = CacheService();
 
   WriteReviewViewModel(this._ref, this._facilityId)
-      : super(const WriteReviewState());
+      : super(const WriteReviewState()) {
+    _loadDraft();
+  }
 
-  void setRating(int value) => state = state.copyWith(rating: value);
-  void setText(String value) => state = state.copyWith(text: value);
+  /// 画像は一時ファイルパスで保存の信頼性が低いため下書き対象外。
+  /// 評価・コメントのみをローカル(Hive)に自動保存し、投稿前に画面を閉じても
+  /// 次回続きから書けるようにする。
+  void _loadDraft() {
+    final draft = _cache.getReviewDraft(_facilityId);
+    if (draft != null) {
+      state = state.copyWith(rating: draft.rating, text: draft.text);
+    }
+  }
+
+  void _saveDraft() {
+    _cache.saveReviewDraft(
+      _facilityId,
+      ReviewDraft(rating: state.rating, text: state.text),
+    );
+  }
+
+  void setRating(int value) {
+    state = state.copyWith(rating: value);
+    _saveDraft();
+  }
+
+  void setText(String value) {
+    state = state.copyWith(text: value);
+    _saveDraft();
+  }
 
   Future<void> pickImages() async {
     if (state.imageFiles.length >= 3) return;
@@ -109,6 +138,7 @@ class WriteReviewViewModel extends StateNotifier<WriteReviewState> {
         _ref.read(firestoreServiceProvider),
       );
       await reviewRepo.addReview(review);
+      await _cache.clearReviewDraft(_facilityId);
 
       state = state.copyWith(isSubmitting: false, isSuccess: true);
     } catch (e) {

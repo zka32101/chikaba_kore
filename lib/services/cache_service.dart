@@ -1,6 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
 import '../models/recent_facility_entry.dart';
+import '../models/review_draft.dart';
 import '../utils/logger.dart';
 
 class CacheService {
@@ -124,6 +125,37 @@ class CacheService {
   /// 最近見た施設の履歴を全消去
   Future<void> clearRecentFacilities() async {
     await _user.delete(_kRecentFacilities);
+  }
+
+  // ---- クチコミ下書き ----
+
+  String _reviewDraftKey(String facilityId) => 'review_draft_$facilityId';
+
+  /// クチコミ下書きを保存する（施設ごとに1件）。評価・コメントが両方未入力なら
+  /// 保存済みの下書きを削除する。
+  Future<void> saveReviewDraft(String facilityId, ReviewDraft draft) async {
+    if (draft.isEmpty) {
+      await clearReviewDraft(facilityId);
+      return;
+    }
+    await _user.put(_reviewDraftKey(facilityId), jsonEncode(draft.toJson()));
+  }
+
+  /// 指定した施設の保存済みクチコミ下書きを取得する。無ければnull。
+  ReviewDraft? getReviewDraft(String facilityId) {
+    final raw = _user.get(_reviewDraftKey(facilityId)) as String?;
+    if (raw == null) return null;
+    try {
+      return ReviewDraft.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (e) {
+      appLogger.w('Review draft decode error', error: e);
+      return null;
+    }
+  }
+
+  /// 指定した施設のクチコミ下書きを削除する（投稿完了時に呼ぶ）。
+  Future<void> clearReviewDraft(String facilityId) async {
+    await _user.delete(_reviewDraftKey(facilityId));
   }
 
   Future<void> clearUserCache() async {

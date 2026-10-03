@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../config/theme/app_theme.dart';
@@ -21,6 +22,24 @@ class WriteReviewScreen extends ConsumerStatefulWidget {
 
 class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
   final _textController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 下書きの復元はViewModelのコンストラクタで完了済みのため、
+    // ここではTextFieldの表示にその初期値を反映するだけでよい。
+    final draftState =
+        ref.read(writeReviewViewModelProvider(widget.facilityId));
+    if (draftState.text.isNotEmpty) _textController.text = draftState.text;
+    if (draftState.rating > 0 || draftState.text.isNotEmpty) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('前回の入力内容を復元しました')),
+        );
+      });
+    }
+  }
 
   @override
   void dispose() {
