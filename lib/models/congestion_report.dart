@@ -53,3 +53,24 @@ class CongestionStatus {
 
   static const empty = CongestionStatus(level: null, reportCount: 0);
 }
+
+/// 時間帯(0-23時)ごとに集計した混雑度パターン。「混みやすい時間帯」の
+/// ヒートマップ表示に使う。
+class CongestionHourlyPattern {
+  const CongestionHourlyPattern({
+    required this.averageScoreByHour,
+    required this.totalReportCount,
+  });
+
+  /// 時間帯(0-23)ごとの平均混雑度（0.0=空いてる 〜 1.0=混んでる）。
+  /// 投稿が無い時間帯はキーが存在しない。
+  final Map<int, double> averageScoreByHour;
+
+  /// 集計対象期間内の投稿総数。
+  final int totalReportCount;
+
+  static const empty = CongestionHourlyPattern(averageScoreByHour: {}, totalReportCount: 0);
+
+  /// ヒートマップとして意味のある傾向を示すのに十分な投稿数があるか。
+  bool get hasEnoughData => totalReportCount >= 5;
+}

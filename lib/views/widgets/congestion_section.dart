@@ -13,6 +13,7 @@ class CongestionSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statusAsync = ref.watch(congestionStatusProvider(facilityId));
+    final hourlyPatternAsync = ref.watch(congestionHourlyPatternProvider(facilityId));
     final isSubmitting = ref.watch(congestionReportNotifierProvider).isLoading;
 
     return Padding(
@@ -59,6 +60,12 @@ class CongestionSection extends ConsumerWidget {
                 )
                 .toList(),
           ),
+          hourlyPatternAsync.when(
+            data: (pattern) =>
+                pattern.hasEnoughData ? _HourlyHeatmap(pattern: pattern) : const SizedBox.shrink(),
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
         ],
       ),
     );
@@ -83,6 +90,66 @@ class CongestionSection extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+/// 時間帯(0-23時)別の混雑度ヒートマップ。過去の投稿から「混みやすい時間帯」
+/// の傾向を24本の縦棒の濃淡で表示する。
+class _HourlyHeatmap extends StatelessWidget {
+  final CongestionHourlyPattern pattern;
+  const _HourlyHeatmap({required this.pattern});
+
+  Color _colorForScore(double? score) {
+    if (score == null) return AppColors.divider.withValues(alpha: 0.4);
+    // 0.0(空いてる・緑) → 0.5(普通・オレンジ) → 1.0(混んでる・赤)のグラデーション
+    if (score <= 0.5) {
+      return Color.lerp(Colors.green, Colors.orange, score / 0.5)!;
+    }
+    return Color.lerp(Colors.orange, AppColors.accent, (score - 0.5) / 0.5)!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '混みやすい時間帯（直近30日間の報告から集計）',
+            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: List.generate(24, (hour) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1),
+                  child: Container(
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: _colorForScore(pattern.averageScoreByHour[hour]),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [0, 6, 12, 18].map((hour) {
+              return Expanded(
+                child: Text(
+                  '$hour時',
+                  style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 }
 

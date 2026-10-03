@@ -20,6 +20,13 @@ final congestionStatusProvider =
   return service.fetchStatus(facilityId);
 });
 
+/// 指定した施設の時間帯別混雑パターン（ヒートマップ表示用）。
+final congestionHourlyPatternProvider =
+    FutureProvider.autoDispose.family<CongestionHourlyPattern, String>((ref, facilityId) async {
+  final service = ref.watch(congestionServiceProvider);
+  return service.fetchHourlyPattern(facilityId);
+});
+
 /// 混雑状況の投稿操作。
 class CongestionReportNotifier extends StateNotifier<AsyncValue<void>> {
   final CongestionService _service;
