@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../config/theme/app_theme.dart';
+import '../models/recent_facility_entry.dart';
 import '../utils/constants.dart';
 import '../utils/extensions.dart';
 import '../providers/favorite_provider.dart';
@@ -109,6 +111,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (!state.hasSearched) {
       return _EmptyPrompt(
         recentSearches: state.recentSearches,
+        recentFacilities: state.recentFacilities,
         onSelectHistory: (q) {
           _controller.text = q;
           _controller.selection = TextSelection.collapsed(offset: q.length);
@@ -116,6 +119,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         },
         onClearHistory: () =>
             ref.read(searchViewModelProvider.notifier).clearHistory(),
+        onClearRecentFacilities: () =>
+            ref.read(searchViewModelProvider.notifier).clearRecentFacilities(),
         onCategoryTap: (cat) {
           ref.read(searchViewModelProvider.notifier).selectCategory(cat);
           ref.read(searchViewModelProvider.notifier).searchByQuery('');
@@ -547,14 +552,18 @@ class _ResultList extends ConsumerWidget {
 // ─────────────────────────────────────────────────
 class _EmptyPrompt extends StatelessWidget {
   final List<String> recentSearches;
+  final List<RecentFacilityEntry> recentFacilities;
   final void Function(String) onSelectHistory;
   final VoidCallback onClearHistory;
+  final VoidCallback onClearRecentFacilities;
   final void Function(String) onCategoryTap;
 
   const _EmptyPrompt({
     required this.recentSearches,
+    required this.recentFacilities,
     required this.onSelectHistory,
     required this.onClearHistory,
+    required this.onClearRecentFacilities,
     required this.onCategoryTap,
   });
 
@@ -563,7 +572,7 @@ class _EmptyPrompt extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       children: [
-        if (recentSearches.isEmpty) ...[
+        if (recentSearches.isEmpty && recentFacilities.isEmpty) ...[
           // ── アイコン + ヒント ──
           Center(
             child: Column(
@@ -600,47 +609,96 @@ class _EmptyPrompt extends StatelessWidget {
           ),
           const SizedBox(height: 28),
         ] else ...[
-          // ── 検索履歴 ──
-          Row(
-            children: [
-              const Icon(Icons.history_rounded,
-                  size: 15, color: AppColors.textSecondary),
-              const SizedBox(width: 6),
-              const Text(
-                '最近の検索',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: onClearHistory,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: const Text(
-                    '全削除',
-                    style: TextStyle(
-                        fontSize: 11, color: AppColors.textSecondary),
+          // ── 最近見た施設 ──
+          if (recentFacilities.isNotEmpty) ...[
+            Row(
+              children: [
+                const Icon(Icons.visibility_outlined,
+                    size: 15, color: AppColors.textSecondary),
+                const SizedBox(width: 6),
+                const Text(
+                  '最近見た施設',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...recentSearches.map(
-            (q) => _HistoryItem(
-              query: q,
-              onTap: () => onSelectHistory(q),
+                const Spacer(),
+                GestureDetector(
+                  onTap: onClearRecentFacilities,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: const Text(
+                      '全削除',
+                      style: TextStyle(
+                          fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 86,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: recentFacilities.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (_, i) =>
+                    _RecentFacilityCard(entry: recentFacilities[i]),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          // ── 検索履歴 ──
+          if (recentSearches.isNotEmpty) ...[
+            Row(
+              children: [
+                const Icon(Icons.history_rounded,
+                    size: 15, color: AppColors.textSecondary),
+                const SizedBox(width: 6),
+                const Text(
+                  '最近の検索',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: onClearHistory,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: const Text(
+                      '全削除',
+                      style: TextStyle(
+                          fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...recentSearches.map(
+              (q) => _HistoryItem(
+                query: q,
+                onTap: () => onSelectHistory(q),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
         ],
 
         // ── カテゴリクイックアクセス ──
@@ -673,6 +731,78 @@ class _EmptyPrompt extends StatelessWidget {
       ],
     );
   }
+}
+
+class _RecentFacilityCard extends StatelessWidget {
+  final RecentFacilityEntry entry;
+  const _RecentFacilityCard({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/facility/${entry.id}'),
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: entry.thumbnailUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: entry.thumbnailUrl,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) => _placeholder(),
+                    )
+                  : _placeholder(),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    entry.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    AppConstants.categoryNames[entry.category] ?? entry.category,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder() => Container(
+        width: 48,
+        height: 48,
+        color: AppColors.divider,
+        child: const Icon(Icons.image_not_supported_outlined,
+            size: 18, color: AppColors.textSecondary),
+      );
 }
 
 class _HistoryItem extends StatelessWidget {

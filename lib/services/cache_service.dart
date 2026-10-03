@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:convert';
+import '../models/recent_facility_entry.dart';
 import '../utils/logger.dart';
 
 class CacheService {
@@ -86,6 +87,43 @@ class CacheService {
   /// 検索履歴を全消去
   Future<void> clearSearchHistory() async {
     await _user.delete(_kSearchHistory);
+  }
+
+  // ---- 最近見た施設 ----
+
+  static const _kRecentFacilities = 'recent_facilities';
+  static const _kMaxRecentFacilities = 10;
+
+  /// 最近見た施設に追加（同一施設は先頭に移動・重複排除、最大 10 件）
+  Future<void> addRecentFacility(RecentFacilityEntry entry) async {
+    final current = recentFacilities;
+    final updated = [entry, ...current.where((e) => e.id != entry.id)]
+        .take(_kMaxRecentFacilities)
+        .toList();
+    await _user.put(
+      _kRecentFacilities,
+      jsonEncode(updated.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  /// 最近見た施設を取得（新しい順）
+  List<RecentFacilityEntry> get recentFacilities {
+    final raw = _user.get(_kRecentFacilities) as String?;
+    if (raw == null) return const [];
+    try {
+      return (jsonDecode(raw) as List)
+          .cast<Map<String, dynamic>>()
+          .map(RecentFacilityEntry.fromJson)
+          .toList();
+    } catch (e) {
+      appLogger.w('Recent facilities decode error', error: e);
+      return const [];
+    }
+  }
+
+  /// 最近見た施設の履歴を全消去
+  Future<void> clearRecentFacilities() async {
+    await _user.delete(_kRecentFacilities);
   }
 
   Future<void> clearUserCache() async {
