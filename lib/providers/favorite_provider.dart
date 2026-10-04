@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/facility_model.dart';
 import '../models/favorite_model.dart';
+import '../models/shared_list.dart';
 import '../repositories/favorite_repository.dart';
 import 'auth_provider.dart';
 import 'facility_provider.dart';
@@ -62,6 +63,25 @@ class FavoriteNotifier extends StateNotifier<AsyncValue<void>> {
 
   Future<void> updateMemo(String facilityId, String memo) async {
     await _repo.updateMemo(_userId, facilityId, memo);
+  }
+
+  /// 共有リスト（`SharedListItem`）から1件を「行きたい」として追加する。
+  /// 既にお気に入り済みの施設は追加せずスキップする（重複追加を避ける）。
+  /// お気に入り上限（無料プラン）に達した場合は[FavoriteRepository.add]の
+  /// 例外がそのまま呼び出し元に伝播する。
+  Future<void> addFromSharedListItem(SharedListItem item) async {
+    final isFav = await _repo.isFavorite(_userId, item.facilityId);
+    if (isFav) return;
+    final favorite = FavoriteModel(
+      id: item.facilityId,
+      facilityId: item.facilityId,
+      facilityName: item.facilityName,
+      facilityThumbnailUrl: item.facilityThumbnailUrl,
+      facilityCategory: item.facilityCategory,
+      status: FavoriteStatus.wantToGo,
+      savedAt: DateTime.now(),
+    );
+    await _repo.add(_userId, favorite, isPremium: _isPremium);
   }
 }
 

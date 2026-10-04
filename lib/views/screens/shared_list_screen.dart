@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/theme/app_theme.dart';
 import '../../models/shared_list.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/favorite_provider.dart';
 import '../../providers/shared_list_provider.dart';
 import '../widgets/custom_app_bar.dart';
 
@@ -112,24 +114,79 @@ class _SharedListScreenState extends ConsumerState<SharedListScreen> {
   }
 }
 
-class _SharedListView extends StatelessWidget {
+class _SharedListView extends ConsumerStatefulWidget {
   final SharedList list;
   const _SharedListView({required this.list});
 
   @override
+  ConsumerState<_SharedListView> createState() => _SharedListViewState();
+}
+
+class _SharedListViewState extends ConsumerState<_SharedListView> {
+  bool _isAddingAll = false;
+
+  Future<void> _handleAddAll(String userId) async {
+    setState(() => _isAddingAll = true);
+    var addedCount = 0;
+    String? limitError;
+    try {
+      for (final item in widget.list.items) {
+        try {
+          await ref.read(favoriteNotifierProvider.notifier).addFromSharedListItem(item);
+          addedCount++;
+        } catch (e) {
+          // お気に入り上限に達した場合はそこで中断し、それまでの追加件数を報告する
+          limitError = e.toString();
+          break;
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isAddingAll = false);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          limitError != null
+              ? '$addedCount件を追加しました（上限に達したため中断: $limitError）'
+              : '$addedCount件をお気に入りに追加しました',
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final list = widget.list;
     if (list.items.isEmpty) {
       return const Center(
         child: Text('このリストは空です', style: TextStyle(color: AppColors.textSecondary)),
       );
     }
 
+    final currentUser = ref.watch(authNotifierProvider).valueOrNull;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${list.ownerNickname}さんのお気に入り（${list.items.length}件）',
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${list.ownerNickname}さんのお気に入り（${list.items.length}件）',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            if (currentUser != null)
+              TextButton.icon(
+                onPressed: _isAddingAll ? null : () => _handleAddAll(currentUser.uid),
+                icon: _isAddingAll
+                    ? const SizedBox(
+                        width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.playlist_add_rounded, size: 18),
+                label: const Text('すべて追加'),
+              ),
+          ],
         ),
         const SizedBox(height: 10),
         Expanded(
