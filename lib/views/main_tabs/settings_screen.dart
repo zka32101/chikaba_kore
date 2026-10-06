@@ -175,6 +175,14 @@ class SettingsScreen extends ConsumerWidget {
                       : () => _navigateToPremium(context),
                 ),
                 _SettingsItem(
+                  icon: Icons.bar_chart_rounded,
+                  label: '詳細統計',
+                  trailing: user.isPremium
+                      ? const Icon(Icons.arrow_forward_ios, color: AppColors.textSecondary, size: 16)
+                      : const Icon(Icons.lock_outline, color: AppColors.textSecondary, size: 16),
+                  onTap: () => context.push('/premium/stats'),
+                ),
+                _SettingsItem(
                   icon: Icons.person_outline,
                   label: 'ユーザータイプ',
                   trailing: Text(
