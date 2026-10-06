@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../config/theme/app_theme.dart';
 import '../../models/favorite_model.dart';
+import '../../providers/business_hours_notification_provider.dart';
 import '../../providers/favorite_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shared_list_provider.dart';
@@ -31,6 +32,11 @@ class _FavoriteScreenState extends ConsumerState<FavoriteScreen>
     _sortBy = 'saved';
     _isComparisonMode = false;
     _selectedForComparison = {};
+    // お気に入り画面を開くたびに、営業時間通知が有効なら今日分を再計算する
+    // （お気に入りの追加・削除・施設側の営業時間変更を反映するため）。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(businessHoursNotificationProvider.notifier).reschedule();
+    });
   }
 
   @override

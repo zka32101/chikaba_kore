@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../config/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/business_hours_notification_provider.dart';
 import '../../providers/notification_preferences_provider.dart';
 import '../../providers/favorite_provider.dart';
 import '../../providers/verification_provider.dart';
@@ -195,6 +196,15 @@ class SettingsScreen extends ConsumerWidget {
                 value: ref.watch(notificationPreferencesProvider),
                 onToggle: (v) => ref
                     .read(notificationPreferencesProvider.notifier)
+                    .setEnabled(v),
+              ),
+              _SettingsSwitchItem(
+                icon: Icons.schedule_outlined,
+                label: '営業時間通知',
+                subtitle: 'お気に入り施設の開店・閉店が近づいたら知らせる',
+                value: ref.watch(businessHoursNotificationProvider),
+                onToggle: (v) => ref
+                    .read(businessHoursNotificationProvider.notifier)
                     .setEnabled(v),
               ),
               _SettingsItem(

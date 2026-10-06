@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 import '../config/router.dart';
 import '../models/app_notification.dart';
 import '../utils/logger.dart';
@@ -27,6 +29,8 @@ class NotificationService {
   static const _channelName = '近場コレ通知';
 
   Future<void> initialize() async {
+    tz_data.initializeTimeZones();
+
     // バックグラウンドハンドラ登録
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -136,5 +140,42 @@ class NotificationService {
 
   Future<void> unsubscribeFromTopic(String topic) async {
     await _messaging.unsubscribeFromTopic(topic);
+  }
+
+  /// 端末内にローカル通知を予約する（FCMを経由しない）。[scheduledTime]は
+  /// ローカル時刻（例: `DateTime.now()`基準の時刻）を渡せばよく、内部でUTCの
+  /// 絶対時刻に変換してからスケジュールするため、端末のタイムゾーン設定に
+  /// 依存せず正確に発火する。過去の時刻が渡された場合は何もしない。
+  Future<void> scheduleLocalNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    String? payload,
+  }) async {
+    if (scheduledTime.isBefore(DateTime.now())) return;
+    final utc = scheduledTime.toUtc();
+    final tzTime = tz.TZDateTime.utc(
+      utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second, utc.millisecond,
+    );
+    await _localNotifications.zonedSchedule(
+      id,
+      title,
+      body,
+      tzTime,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(_channelId, _channelName),
+        iOS: DarwinNotificationDetails(),
+      ),
+      // 多少の遅延は許容できる通知のため、SCHEDULE_EXACT_ALARM権限を
+      // 要求しない inexact モードを使う（Doze中でも発火する）。
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: payload,
+    );
+  }
+
+  /// [scheduleLocalNotification]で予約した通知をキャンセルする。
+  Future<void> cancelLocalNotification(int id) async {
+    await _localNotifications.cancel(id);
   }
 }
