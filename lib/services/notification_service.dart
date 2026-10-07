@@ -20,10 +20,12 @@ class NotificationService {
 
   final _messaging = FirebaseMessaging.instance;
   final _localNotifications = FlutterLocalNotificationsPlugin();
-  final _foregroundMessageController = StreamController<AppNotification>.broadcast();
+  final _foregroundMessageController =
+      StreamController<AppNotification>.broadcast();
 
   /// フォアグラウンド受信したプッシュ通知。アプリ内バナー表示用。
-  Stream<AppNotification> get foregroundMessages => _foregroundMessageController.stream;
+  Stream<AppNotification> get foregroundMessages =>
+      _foregroundMessageController.stream;
 
   static const _channelId = 'chikaba_kore_default';
   static const _channelName = '近場コレ通知';
@@ -62,7 +64,8 @@ class NotificationService {
     );
     await _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(androidChannel);
 
     // フォアグラウンド時はシステム側のアラート表示を抑止し、
@@ -156,7 +159,13 @@ class NotificationService {
     if (scheduledTime.isBefore(DateTime.now())) return;
     final utc = scheduledTime.toUtc();
     final tzTime = tz.TZDateTime.utc(
-      utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second, utc.millisecond,
+      utc.year,
+      utc.month,
+      utc.day,
+      utc.hour,
+      utc.minute,
+      utc.second,
+      utc.millisecond,
     );
     await _localNotifications.zonedSchedule(
       id,
@@ -170,6 +179,8 @@ class NotificationService {
       // 多少の遅延は許容できる通知のため、SCHEDULE_EXACT_ALARM権限を
       // 要求しない inexact モードを使う（Doze中でも発火する）。
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       payload: payload,
     );
   }

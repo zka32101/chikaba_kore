@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../config/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/auth_service.dart';
-import '../../utils/auth_error.dart';
-import '../../utils/validators.dart';
 
+/// 近場まっぷの認証方式は Google Sign-In のみ（`docs/AUTH_STRATEGY_DESIGN.md`参照）。
+/// メール/パスワード認証は導入しない。
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,19 +14,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
   bool _isGoogleLoading = false;
-
-  @override
-  void dispose() {
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
-    super.dispose();
-  }
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isGoogleLoading = true);
@@ -36,86 +23,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) context.go('/home');
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google ログインに失敗しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Google ログインに失敗しました')));
       }
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
-    }
-  }
-
-  Future<void> _showPasswordReset(BuildContext context) async {
-    final emailCtrl = TextEditingController(text: _emailCtrl.text.trim());
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('パスワードリセット'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('登録済みのメールアドレスにリセット用リンクを送ります。'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                hintText: 'メールアドレス',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(minimumSize: Size.zero),
-            child: const Text('送信'),
-          ),
-        ],
-      ),
-    );
-    if (result == true && context.mounted) {
-      try {
-        await AuthService().sendPasswordResetEmail(emailCtrl.text);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('リセット用メールを送信しました')),
-          );
-        }
-      } catch (_) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('送信に失敗しました。メールアドレスを確認してください')),
-          );
-        }
-      }
-    }
-    emailCtrl.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
-    try {
-      await ref.read(authNotifierProvider.notifier).signIn(
-            email: _emailCtrl.text.trim(),
-            password: _passwordCtrl.text,
-          );
-      if (mounted) context.go('/home');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authErrorMessage(e))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -128,88 +41,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 32),
-              const Icon(Icons.location_on, color: AppColors.primary, size: 64),
-              const SizedBox(height: 32),
-              TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'メールアドレス',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-                validator: Validators.email,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordCtrl,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: 'パスワード',
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                ),
-                validator: Validators.password,
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => _showPasswordReset(context),
-                  child: const Text(
-                    'パスワードを忘れた方',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text('ログイン'),
-              ),
-              const SizedBox(height: 16),
-              // ── ソーシャルログイン ──
-              Row(
-                children: [
-                  const Expanded(child: Divider()),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'または',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                    ),
-                  ),
-                  const Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _GoogleButton(
-                isLoading: _isGoogleLoading,
-                onTap: _isLoading ? null : _signInWithGoogle,
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => context.go('/signup'),
-                child: const Text('アカウントをお持ちでない方'),
-              ),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 48),
+            const Icon(Icons.location_on, color: AppColors.primary, size: 64),
+            const SizedBox(height: 16),
+            const Text(
+              '近場コレへようこそ',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 48),
+            _GoogleButton(
+              isLoading: _isGoogleLoading,
+              onTap: _signInWithGoogle,
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => context.go('/signup'),
+              child: const Text('アカウントをお持ちでない方'),
+            ),
+          ],
         ),
       ),
     );

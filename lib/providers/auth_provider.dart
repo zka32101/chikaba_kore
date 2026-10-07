@@ -59,7 +59,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
       final user = await _repo.signInWithGoogle();
       // RevenueCat の app_user_id を Firebase UID に一致させる
       // (revenuecatWebhook が users/{uid} を直接更新できるようにするため)
-      await linkPurchasesToUser(user.uid);
+      if (user != null) await linkPurchasesToUser(user.uid);
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -93,10 +93,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     final updated = await _repo.updateUserField({'userType': userType});
     if (updated != null) state = AsyncValue.data(updated);
   }
-
 }
 
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>(
-  (ref) => AuthNotifier(ref.watch(authRepositoryProvider)),
-);
+      (ref) => AuthNotifier(ref.watch(authRepositoryProvider)),
+    );
