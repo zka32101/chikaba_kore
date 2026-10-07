@@ -19,10 +19,7 @@ class PremiumScreen extends ConsumerWidget {
     final isPremium = currentUser.valueOrNull?.isPremium ?? false;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('プレミアム会員'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('プレミアム会員'), centerTitle: true),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -74,9 +71,7 @@ class PremiumScreen extends ConsumerWidget {
                 packages.when(
                   data: (packageList) {
                     if (packageList.isEmpty) {
-                      return const Center(
-                        child: Text('利用可能なプランがありません'),
-                      );
+                      return const Center(child: Text('利用可能なプランがありません'));
                     }
 
                     return Column(
@@ -100,19 +95,16 @@ class PremiumScreen extends ConsumerWidget {
                       ],
                     );
                   },
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  error: (error, stack) => Center(
-                    child: Text('エラー: $error'),
-                  ),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) => Center(child: Text('エラー: $error')),
                 ),
               const SizedBox(height: 24),
 
               // 復元ボタン
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.tonal(
+                child: FilledButton.tonal(
                   onPressed: subscriptionState.isLoading
                       ? null
                       : () => _handleRestore(context, ref),
@@ -183,18 +175,12 @@ class PremiumScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               product.priceString,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             if (!isMonthly)
               Text(
                 '月額 ${(product.price / 12).toStringAsFixed(2)} 相当',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             const SizedBox(height: 16),
             SizedBox(
@@ -228,37 +214,34 @@ class PremiumScreen extends ConsumerWidget {
       final success = await notifier.purchase(productId);
 
       if (success && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('購入処理が完了しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('購入処理が完了しました')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラーが発生しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('エラーが発生しました: $e')));
       }
     }
   }
 
-  Future<void> _handleRestore(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _handleRestore(BuildContext context, WidgetRef ref) async {
     try {
       final notifier = ref.read(subscriptionNotifierProvider.notifier);
       await notifier.restorePurchases();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('購入履歴を復元しました')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('購入履歴を復元しました')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('復元に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('復元に失敗しました: $e')));
       }
     }
   }
@@ -329,5 +312,6 @@ class _CurrentPlanCard extends ConsumerWidget {
     );
   }
 
-  String _formatDate(DateTime date) => '${date.year}年${date.month}月${date.day}日';
+  String _formatDate(DateTime date) =>
+      '${date.year}年${date.month}月${date.day}日';
 }
